@@ -1,0 +1,15 @@
+# MATLAB local state
+*.asv
+debug.log
+
+# OS and archive noise
+__MACOSX/
+*.zip
+
+# Generated analysis outputs
+artifacts/
+
+# Raw radar payloads stay local; keep manifests and sidecar metadata versionable
+20260622T102123/radar/
+20260713T150404/radar/
+20????????T??????/radar/

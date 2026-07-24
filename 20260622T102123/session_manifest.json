@@ -1,0 +1,31 @@
+{
+  "manifest_version": 1,
+  "session_id": "20260622T102123",
+  "session_folder": "20260622T102123",
+  "session_created_utc": "2026-06-22T14:24:03Z",
+  "capture_duration_s": 1,
+  "capture_repetitions": 15,
+  "capture_repetition_spacing_s": 1,
+  "radar_active_window_s": 29.0,
+  "radar_recorded_iq_seconds_s": 15.0,
+  "lead_seconds_s": 15,
+  "tail_seconds_s": 5,
+  "adsb_target_window_s": 49.0,
+  "adsb_run_seconds_s": 158.9,
+  "adsb_stop_mode": "signal_after_capture",
+  "capture_file_base": "n320_hdtv_capture",
+  "gain_spec": "28,48",
+  "pi_host": "192.168.10.131",
+  "pi_user": "pi2",
+  "remote_log_file": "/home/pi2/flightTest/ADSB_GPS/adsb_capture_20260622T102123.log",
+  "radar_epoch_utc": 1782138170.238281,
+  "sdr_defaults": {
+    "radio_name": "My USRP N320",
+    "center_frequency_hz": 599000000,
+    "sample_rate_hz": 6144000,
+    "lo_offset_hz": 0
+  },
+  "radar_files": ["radar/n320_hdtv_capture_20260622T102123_part1", "radar/n320_hdtv_capture_20260622T102123_part2", "radar/n320_hdtv_capture_20260622T102123_part3", "radar/n320_hdtv_capture_20260622T102123_part4", "radar/n320_hdtv_capture_20260622T102123_part5", "radar/n320_hdtv_capture_20260622T102123_part6", "radar/n320_hdtv_capture_20260622T102123_part7", "radar/n320_hdtv_capture_20260622T102123_part8", "radar/n320_hdtv_capture_20260622T102123_part9", "radar/n320_hdtv_capture_20260622T102123_part10", "radar/n320_hdtv_capture_20260622T102123_part11", "radar/n320_hdtv_capture_20260622T102123_part12", "radar/n320_hdtv_capture_20260622T102123_part13", "radar/n320_hdtv_capture_20260622T102123_part14", "radar/n320_hdtv_capture_20260622T102123_part15"],
+  "adsb_files": ["truth/0_20260622_102124_adsb_20260622T102123.txt.gz"],
+  "log_files": ["logs/flighttest_capture_20260622T102123_ohvZ.log", "logs/adsb_capture_20260622T102123.log"]
+}

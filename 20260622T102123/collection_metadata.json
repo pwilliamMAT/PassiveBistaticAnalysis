@@ -1,0 +1,67 @@
+{
+  "session_id": "20260622T102123",
+  "metadata_source": "manual_operator_annotations",
+  "channel_assignments": {
+    "reference_channel": {
+      "channel_label": "RF1:RX2",
+      "n320_section": "RF1",
+      "port": "RX2",
+      "role": "reference",
+      "antenna_name": "Omnidirectional dipole",
+      "antenna_type": "dipole",
+      "antenna_tuned_frequency_hz": 600000000,
+      "manufacturer": "",
+      "model": "",
+      "polarization": "",
+      "mount_height_m": "",
+      "cable_type": "",
+      "cable_length_m": "",
+      "preamp_or_attenuator": "",
+      "notes": "Reference antenna tuned near 600 MHz."
+    },
+    "surveillance_channel": {
+      "channel_label": "RF0:RX2",
+      "n320_section": "RF0",
+      "port": "RX2",
+      "role": "surveillance",
+      "antenna_name": "Off-the-shelf HDTV Yagi",
+      "antenna_type": "Yagi",
+      "manufacturer": "pbd",
+      "model": "WA-2608",
+      "nominal_frequency_range": "VHF 170-230 MHz | UHF 470-890 MHz",
+      "gain_dbi": "",
+      "published_product_gain_note": "Operator-provided product listing states typical gain VHF 28-32 dB | UHF 32-36 dB. Treat this as published system/product gain metadata, not a confirmed passive-antenna dBi value.",
+      "published_noise_figure_note": "Operator-provided product listing states noise figure <= 2.5 dB.",
+      "published_impedance_ohm": "75",
+      "published_max_output_level_note": "Operator-provided product listing states max output level 105 dB uV.",
+      "published_power_requirement": "AC120V +/-10% / 60 Hz",
+      "published_operating_temperature_note": "-10 C to 50 C",
+      "polarization": "",
+      "beamwidth_deg": "",
+      "mount_height_m": "",
+      "boresight_azimuth_deg": "",
+      "elevation_tilt_deg": "",
+      "cable_type": "RG6",
+      "cable_length_m": "",
+      "cable_length_ft": "40",
+      "preamp_or_attenuator": "Amplifier was in the surveillance-channel loop for this specific session. Operator is skeptical that the amplifier was functional. Product listing is for an amplified antenna assembly.",
+      "notes": "Surveillance antenna pointed west along Route 9 in Massachusetts. Product metadata copied from operator-provided Amazon listing."
+    }
+  },
+  "site_context": {
+    "site_region": "Route 9, Massachusetts",
+    "surveillance_boresight_description": "Pointed west along Route 9 in Massachusetts.",
+    "expected_air_traffic_note": "Expected aircraft approaching or leaving Logan Airport based on manually verified ADS-B history data.",
+    "illuminator_note": "",
+    "receiver_location_note": "",
+    "obstructions_or_clutter_note": ""
+  },
+  "acquisition_controls": {
+    "gain_mapping_note": "gain_spec 28,48 maps in logger order [SurveillanceGain, ReferenceGain] to RF0:RX2 = 28 dB and RF1:RX2 = 48 dB. Verified from flightTest/TestSetupTesting/log_iq_n320_2antennas.m lines 86-100. Current hardware baseline documentation also describes RX0/CH1 as surveillance and RX1/CH2 as reference.",
+    "gain_mode_note": "Manual gain. The logger assigns bbrx.RadioGain directly from the requested numeric gain value(s) and does not enable AGC in the capture path. Verified from flightTest/TestSetupTesting/log_iq_n320_2antennas.m lines 86-92.",
+    "lock_status_note": "",
+    "overrun_note": "",
+    "channel_mapping_verification_note": "",
+    "operator_notes": "Manual antenna-role and geometry notes added after collection to augment automatic system metadata."
+  }
+}

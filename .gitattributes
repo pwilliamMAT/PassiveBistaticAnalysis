@@ -1,0 +1,6 @@
+*.m text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.log text eol=lf
+*.txt text eol=lf
+*.gz binary
