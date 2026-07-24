@@ -1,6 +1,63 @@
 # Passive Bistatic Restart
 
-This repository now contains an initial MATLAB implementation for `G1 Ingest` plus the planning and checkpoint documentation for later gates. The approved technical direction, checkpoint structure, and QE rules are captured in the Markdown and Mermaid documents in this repo, while later gates remain to be added incrementally.
+This repository is an isolated restart of the passive-bistatic acquisition and analysis workflow. The goal is to rebuild the MATLAB analysis gate by gate, keep the evidence and decision logic explicit, and later integrate selected mature work back into `flightTest` without carrying over the older repo context wholesale.
+
+The repo now contains a working single-session baseline review flow for `G1 Ingest`, `G2 Stage 1 Acquisition Evidence`, and `G2 Stage 2 Receiver Integrity`, plus an artifact-only hardware-comparison path for saved G1/G2 outputs. Later gates remain documentation-led or placeholder-only until they are explicitly opened.
+
+## Start Here
+
+- New users should open [runPassiveBistaticPiplineLiveScript.m](runPassiveBistaticPiplineLiveScript.m) in the MATLAB Live Editor first.
+- That Live Script is the main single-session walkthrough for the current baseline dataset `20260622T102123`.
+- It explains the active question at each implemented gate, runs the current code path, renders inline tables plus the visible G2 figures, and preserves placeholder sections for `G3` and later gates so the overall pipeline state is visible in one place.
+- If you want the hardware-change view after understanding the baseline, open [runPassiveBistaticSessionComparisonLiveScript.m](runPassiveBistaticSessionComparisonLiveScript.m). That Live Script compares saved artifacts only and does not replace the single-session gate review.
+
+## Project Goal
+
+- Re-establish a trusted passive-bistatic analysis workflow from ingest through later tracking, with explicit gate ownership and evidence at each step.
+- Keep single-session gate decisions separate from cross-session hardware iteration so dataset and hardware changes do not silently rewrite the baseline review logic.
+- Separate three questions whenever possible:
+  - is the analysis path technically valid?
+  - is the dataset or hardware acquisition good enough for the gate?
+  - is the gate formally approved to open the next stage?
+- Keep this repo isolated while the workflow is being rebuilt, then move only the mature pieces back into `flightTest` through selective integration.
+
+## Current Progress Snapshot
+
+- `loadIQData` is the stable ingest helper beneath the current gate runners.
+- `runG1Ingest` is implemented and acts as the frozen upstream contract for current G2 work.
+- `runG2Stage1AcquisitionEvidence` is implemented and manually accepted for progression on the baseline session `20260622T102123`.
+- `runG2Stage2ReceiverIntegrity` is implemented and runnable, but formal manual review is still pending in the checklist.
+- `runG1G2SessionComparison` and [runPassiveBistaticSessionComparisonLiveScript.m](runPassiveBistaticSessionComparisonLiveScript.m) are implemented for artifact-only comparison of the baseline session against later hardware variants such as `20260713T150404`.
+- `G2` Stage 3 through Stage 5 are not started, and `G3` through `G10` remain placeholder-only in the single-session Live Script.
+
+## What We Have Tried and Learned So Far
+
+- We rebuilt the baseline around manifest-driven ingest rather than assuming a raw-IQ contract by inspection.
+- We kept `20260622T102123` as the single-session baseline and added `20260713T150404` as a hardware-comparison candidate instead of replacing the baseline session silently.
+- We added dataset-local manual acquisition metadata support through `collection_metadata.json` so Stage 1 can recover configuration and role evidence that was not captured automatically by the collection logs.
+- We implemented a separate artifact-only comparison path so hardware changes can be reviewed from saved `comparison_snapshot.mat` files without rerunning raw analysis inside the comparison tool.
+- The current Stage 2 baseline result is intentionally split:
+  - strict RF/legal posture stays caveated, with legal recommendation `retune` and dataset classification recommendation `diagnostic`
+  - analysis posture stays usable, with `AnalysisValidity = valid` and `DevelopmentReadiness = unblocked_with_dataset_caveat`
+- The key Stage 2 finding so far is that the accepted reference channel is about `9.7 dB` to `10.2 dB` weaker than surveillance across repetitions, while clipping, DC, and IQ/image proxies stay low. The present interpretation is therefore dataset, hardware, gain, geometry, or acquisition limitation rather than immediate evidence that the Stage 2 analysis itself is broken.
+- Required acquisition-path improvements for future sessions are captured in [AdjustmentsToAcquisition.md](AdjustmentsToAcquisition.md).
+
+## Files To Read In Order
+
+- [runPassiveBistaticPiplineLiveScript.m](runPassiveBistaticPiplineLiveScript.m): main single-session baseline walkthrough and the best first file for catching up quickly.
+- [runPassiveBistaticSessionComparisonLiveScript.m](runPassiveBistaticSessionComparisonLiveScript.m): artifact-only baseline-versus-candidate hardware comparison walkthrough.
+- [ProjectPlan.md](ProjectPlan.md): canonical roadmap, gate order, and milestone definitions for the full program.
+- [G2Plan.md](G2Plan.md): detailed G2 technical plan, decision boundaries, and council-review context.
+- [docs/checkpoints/G2Checklist.md](docs/checkpoints/G2Checklist.md): current manual-review status for G2 stages and the formal statement of what is still blocked.
+- [AdjustmentsToAcquisition.md](AdjustmentsToAcquisition.md): acquisition and hardware-evidence gaps to fix in future collections.
+- [runG1Ingest.m](runG1Ingest.m), [runG2Stage1AcquisitionEvidence.m](runG2Stage1AcquisitionEvidence.m), [runG2Stage2ReceiverIntegrity.m](runG2Stage2ReceiverIntegrity.m), and [runG1G2SessionComparison.m](runG1G2SessionComparison.m): batch runners behind the Live Script views.
+- [helperAnalyzeG2AcquisitionEvidence.m](helperAnalyzeG2AcquisitionEvidence.m) and [helperAnalyzeG2ReceiverIntegrity.m](helperAnalyzeG2ReceiverIntegrity.m): the current main analysis helpers for the implemented G2 work.
+
+## Where Outputs Go
+
+- Single-session evidence bundles are written under `artifacts/<datasetId>/...`.
+- The comparison workflow writes hardware-comparison bundles under `artifacts/comparisons/<baseline>_vs_<candidate>/...`.
+- G1, G2 Stage 1, and G2 Stage 2 now also save `comparison_snapshot.mat` so later session comparison stays artifact-only.
 
 When you revisit the external collection path, see [AdjustmentsToAcquisition.md](AdjustmentsToAcquisition.md) for the Stage 1 acquisition-evidence gaps, the information that should be captured explicitly in future sessions, and suggestions for how to obtain it.
 
