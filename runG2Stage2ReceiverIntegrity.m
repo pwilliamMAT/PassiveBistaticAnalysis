@@ -722,8 +722,8 @@ figureHandle = figure("Visible", ...
     "Name", "G2 Stage 2 Average PSD by Accepted Role", ...
     "NumberTitle", "off");
 cleanupObject = localCreateFigureCleanup(figureHandle, showFigures); %#ok<NASGU>
-tiledlayout(1, 1);
-nexttile;
+layoutHandle = tiledlayout(1, 1);
+nexttile(layoutHandle);
 plot(analysis.RoleEvidence.PsdFrequencyHz / 1.0e6, ...
     pow2db(analysis.RoleEvidence.ReferenceMeanPsd + eps), ...
     "LineWidth", 1.4);
@@ -739,13 +739,7 @@ title("G2 Stage 2 Average PSD by Accepted Role");
 legend("Reference", "Surveillance", Location = "best");
 drawnow
 
-try
-    exportgraphics(figureHandle, figurePath);
-catch exportException
-    error("runG2Stage2ReceiverIntegrity:ExportFigureFailed", ...
-        "Failed to export %s: %s", figurePath, ...
-        exportException.message);
-end
+localExportGraphics(layoutHandle, figurePath);
 
 clear cleanupObject
 
@@ -761,9 +755,9 @@ figureHandle = figure("Visible", ...
     "Name", "G2 Stage 2 Receiver Metrics Overview", ...
     "NumberTitle", "off");
 cleanupObject = localCreateFigureCleanup(figureHandle, showFigures); %#ok<NASGU>
-tiledlayout(3, 1);
+layoutHandle = tiledlayout(3, 1);
 
-nexttile;
+nexttile(layoutHandle);
 plot(repetitionVector, receiverIntegrityTable.ReferenceMeanPower_dBFS, ...
     "-o", "LineWidth", 1.2);
 hold on
@@ -776,7 +770,7 @@ ylabel("Mean Power [dBFS]");
 title("Receiver Mean Power by Accepted Role");
 legend("Reference", "Surveillance", Location = "best");
 
-nexttile;
+nexttile(layoutHandle);
 plot(repetitionVector, ...
     receiverIntegrityTable.ReferenceMinusSurveillancePower_dB, ...
     "-o", "LineWidth", 1.2);
@@ -792,7 +786,7 @@ ylabel("Reference - Surveillance [dB]");
 title("Reference Power Advantage");
 legend("Observed", "Minimum", "Target", Location = "best");
 
-nexttile;
+nexttile(layoutHandle);
 plot(repetitionVector, receiverIntegrityTable.ReferencePeakHeadroom_dB, ...
     "-o", "LineWidth", 1.2);
 hold on
@@ -807,13 +801,7 @@ title("Peak Headroom by Accepted Role");
 legend("Reference", "Surveillance", Location = "best");
 drawnow
 
-try
-    exportgraphics(figureHandle, figurePath);
-catch exportException
-    error("runG2Stage2ReceiverIntegrity:ExportFigureFailed", ...
-        "Failed to export %s: %s", figurePath, ...
-        exportException.message);
-end
+localExportGraphics(layoutHandle, figurePath);
 
 clear cleanupObject
 
@@ -829,9 +817,9 @@ figureHandle = figure("Visible", ...
     "Name", "G2 Stage 2 DC, IQ, and Clipping Overview", ...
     "NumberTitle", "off");
 cleanupObject = localCreateFigureCleanup(figureHandle, showFigures); %#ok<NASGU>
-tiledlayout(2, 2);
+layoutHandle = tiledlayout(2, 2);
 
-nexttile;
+nexttile(layoutHandle);
 plot(repetitionVector, receiverIntegrityTable.ReferenceNearRailFraction, ...
     "-o", "LineWidth", 1.2);
 hold on
@@ -848,7 +836,7 @@ title("Near-Rail Occupancy");
 legend("Reference", "Surveillance", "Severe Threshold", ...
     Location = "best");
 
-nexttile;
+nexttile(layoutHandle);
 plot(repetitionVector, receiverIntegrityTable.ReferenceDcSpike_dB, ...
     "-o", "LineWidth", 1.2);
 hold on
@@ -864,7 +852,7 @@ title("DC Spike Relative to Local PSD Floor");
 legend("Reference", "Surveillance", "Diagnostic Threshold", ...
     Location = "best");
 
-nexttile;
+nexttile(layoutHandle);
 plot(repetitionVector, ...
     receiverIntegrityTable.ReferenceIqAmplitudeImbalance_dB, ...
     "-o", "LineWidth", 1.2);
@@ -884,7 +872,7 @@ title("I/Q Amplitude Imbalance Proxy");
 legend("Reference", "Surveillance", "Diagnostic Threshold", ...
     Location = "best");
 
-nexttile;
+nexttile(layoutHandle);
 plot(repetitionVector, receiverIntegrityTable.ReferenceIqImpropriety, ...
     "-o", "LineWidth", 1.2);
 hold on
@@ -901,15 +889,21 @@ legend("Reference", "Surveillance", "Diagnostic Threshold", ...
     Location = "best");
 drawnow
 
+localExportGraphics(layoutHandle, figurePath);
+
+clear cleanupObject
+
+end
+
+function localExportGraphics(exportTarget, figurePath)
+
 try
-    exportgraphics(figureHandle, figurePath);
+    exportgraphics(exportTarget, figurePath);
 catch exportException
     error("runG2Stage2ReceiverIntegrity:ExportFigureFailed", ...
         "Failed to export %s: %s", figurePath, ...
         exportException.message);
 end
-
-clear cleanupObject
 
 end
 

@@ -16,8 +16,8 @@ This checklist tracks only `G2_RF_Health`. Each customer-flow stage is treated a
 | Stage | Flowchart Section | Status | Manual Check | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | 1 | Acquisition Evidence | `approved_ready_for_stage_2` | `complete` | Stage 1 accepted for progression on the single-session baseline `20260622T102123` based on current automatic evidence plus operator-provided session metadata. Future acquisition-path improvements are captured in `AdjustmentsToAcquisition.md`. |
-| 2 | Receiver Integrity | `implemented_pending_manual_review` | `pending` | Stage 2 standalone runner and helper analysis are implemented. The single-session baseline `20260622T102123` still carries the checklist status; hardware comparison sessions are reviewed separately through the artifact-only comparison workflow. |
-| 3 | Illuminator and Interference | `not_started` | `not_started` | Hold until Stage 2 is manually reviewed and approved. |
+| 2 | Receiver Integrity | `approved_ready_for_stage_3` | `complete` | Stage 2 manual review is complete for the single-session baseline `20260622T102123`. The RF outcome remains caveated and diagnostic, but the status is approved for progression to Stage 3 review. |
+| 3 | Illuminator and Interference | `not_started` | `not_started` | Open for Stage 3 scope review now that Stage 2 manual review is complete. |
 | 4 | Coherent Usability | `not_started` | `not_started` | Hold until Stage 3 is manually reviewed and approved. |
 | 5 | Session Classification and Decision | `not_started` | `not_started` | Hold until Stages 1 through 4 are manually reviewed and approved. |
 
@@ -45,18 +45,18 @@ This checklist tracks only `G2_RF_Health`. Each customer-flow stage is treated a
 
 ## Stage 2 - Receiver Integrity
 
-- Status: `implemented_pending_manual_review`
+- Status: `approved_ready_for_stage_3`
 - Primary code:
   - `runG2Stage2ReceiverIntegrity.m`
   - `helperAnalyzeG2ReceiverIntegrity.m`
 - Supporting source file:
   - `20260622T102123/collection_metadata.json`
 - Manual check items:
-  - [ ] Review the accepted role mapping and confirm Stage 2 should use `RF1:RX2` as reference and `RF0:RX2` as surveillance for this session.
-  - [ ] Review the receiver-integrity table and confirm the reference-minus-surveillance power ordering is interpreted correctly.
-  - [ ] Review clipping, DC, and IQ/image metrics and confirm the current thresholds are reasonable for this dataset.
-  - [ ] Review the Stage 2 legal recommendation, dataset-classification wording, and the separate development-readiness wording.
-  - [ ] Decide whether the baseline Stage 2 result should remain `retune` and `diagnostic`, and whether the development status should remain `unblocked_with_dataset_caveat` until Stage 2 is formally approved.
+  - [x] Review the accepted role mapping and confirm Stage 2 should use `RF1:RX2` as reference and `RF0:RX2` as surveillance for this session.
+  - [x] Review the receiver-integrity table and confirm the reference-minus-surveillance power ordering is interpreted correctly.
+  - [x] Review clipping, DC, and IQ/image metrics and confirm the current thresholds are reasonable for this dataset.
+  - [x] Review the Stage 2 legal recommendation, dataset-classification wording, and the separate development-readiness wording.
+  - [x] Decide whether the baseline Stage 2 result should remain `retune` and `diagnostic`, and whether the development status should remain `unblocked_with_dataset_caveat` until Stage 2 is formally approved.
 - Comments:
   - `2026-07-22`: Stage 2 implementation completed with standalone artifacts under `artifacts/20260622T102123/G2_RF_Health_Stage2_ReceiverIntegrity/`.
   - `2026-07-22`: Latest Stage 2 bundle is `artifacts/20260622T102123/G2_RF_Health_Stage2_ReceiverIntegrity/20260722T200041Z/`.
@@ -66,6 +66,12 @@ This checklist tracks only `G2_RF_Health`. Each customer-flow stage is treated a
   - `2026-07-24`: Hardware comparison against `20260713T150404` and later sessions should be reviewed through the artifact-only comparison workflow. Those comparisons are advisory until explicitly reflected in this checklist.
   - `2026-07-24`: The baseline Stage 2 bundle now reports `AnalysisValidity = valid` and `DevelopmentReadiness = unblocked_with_dataset_caveat` to distinguish a dataset-limited result from a broken Stage 2 analysis path.
   - `2026-07-24`: This dual-status wording does not open Stage 3 formally. Stage 3 remains blocked in the checklist until Stage 2 is manually reviewed and approved.
+  - `2026-07-27`: Manual Stage 2 review completed for the single-session baseline `20260622T102123` using bundle `artifacts/20260622T102123/G2_RF_Health_Stage2_ReceiverIntegrity/20260724T184355Z/`.
+  - `2026-07-27`: Confirmed Stage 2 should use `RF1:RX2` as `reference` and `RF0:RX2` as `surveillance` for this session, based on the accepted Stage 1 manual mapping and current collection metadata.
+  - `2026-07-27`: Confirmed the reference-minus-surveillance power ordering is interpreted correctly under that accepted mapping. The current result remains that the accepted reference channel is weaker than surveillance across all repetitions.
+  - `2026-07-27`: Confirmed the current clipping, DC, and IQ/image thresholds are reasonable for this dataset and remain acceptable for Stage 2 review at this time.
+  - `2026-07-27`: Confirmed the current Stage 2 wording is acceptable: legal recommendation `retune`, dataset classification recommendation `diagnostic`, `AnalysisValidity = valid`, and `DevelopmentReadiness = unblocked_with_dataset_caveat`.
+  - `2026-07-27`: Approved the baseline Stage 2 result as defendable for this session. Formal Stage 2 manual review is complete for progression to Stage 3 review, while retaining the Stage 2 RF outcome `receiver_integrity_caveated` and the dataset-limited caveat captured in the saved bundle.
 
 ## Stage 3 - Illuminator and Interference
 
@@ -73,7 +79,7 @@ This checklist tracks only `G2_RF_Health`. Each customer-flow stage is treated a
 - Manual check items:
   - [ ] Review Stage 3 scope before implementation.
 - Comments:
-  - `TBD`
+  - `2026-07-27`: Stage 2 manual review is complete, so Stage 3 scope review may now proceed.
   - Development-only continuation under Stage 2 caveat is separate from formal Stage 3 approval.
 
 ## Stage 4 - Coherent Usability
