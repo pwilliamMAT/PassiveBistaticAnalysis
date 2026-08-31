@@ -9,7 +9,10 @@ function sessionData = loadIQData(datasetId, repoRoot, options)
 %
 %   OPTIONS.IncludeSamples defaults to true. Set it to false to return the
 %   decoded metadata and contracts without retaining the full IQ matrices in
-%   the returned session struct.
+%   the returned session struct. OPTIONS.PartSelection supports part 1 or
+%   "all" and defaults to "all". OPTIONS.SessionRoot can identify a packaged
+%   session outside the PBR repository without adding external source code
+%   to the MATLAB path.
 
 arguments
     datasetId (1,1) string = "20260622T102123"
@@ -19,7 +22,7 @@ end
 
 repoRoot = helperResolveRepoRoot(repoRoot);
 datasetId = string(datasetId);
-datasetRoot = fullfile(repoRoot, datasetId);
+datasetRoot = localResolveDatasetRoot(repoRoot, datasetId, options);
 manifestPath = fullfile(datasetRoot, "session_manifest.json");
 includeSamples = localResolveIncludeSamples(options);
 
@@ -28,18 +31,22 @@ observedFiles = localCollectObservedFiles(datasetRoot);
 manifestTable = localBuildManifestTable(manifest, observedFiles);
 
 radarRelativePaths = string(manifest.radar_files(:));
-scanCount = numel(radarRelativePaths);
+packageScanCount = numel(radarRelativePaths);
+selectedManifestIndices = localResolvePartSelection(options, packageScanCount);
+selectedRadarRelativePaths = radarRelativePaths(selectedManifestIndices);
+scanCount = numel(selectedRadarRelativePaths);
 radarScanCells = cell(scanCount, 1);
 
 for idx = 1:scanCount
+    manifestIndex = selectedManifestIndices(idx);
     absoluteFilePath = fullfile(datasetRoot, ...
-        strrep(radarRelativePaths(idx), "/", filesep));
+        strrep(selectedRadarRelativePaths(idx), "/", filesep));
     radarScanCells{idx} = helperScanBasebandCaptureFile(absoluteFilePath, ...
         includeSamples);
-    radarScanCells{idx}.ManifestIndex = idx;
-    radarScanCells{idx}.RelativePath = radarRelativePaths(idx);
+    radarScanCells{idx}.ManifestIndex = manifestIndex;
+    radarScanCells{idx}.RelativePath = selectedRadarRelativePaths(idx);
     radarScanCells{idx}.FileSuffixRepetition = ...
-        localExtractFileSuffixRepetition(radarRelativePaths(idx));
+        localExtractFileSuffixRepetition(selectedRadarRelativePaths(idx));
 end
 
 radarScans = vertcat(radarScanCells{:});
@@ -54,6 +61,10 @@ sessionData.ManifestPath = string(manifestPath);
 sessionData.Manifest = manifest;
 sessionData.ObservedInventoryTable = observedFiles;
 sessionData.ManifestInventoryTable = manifestTable;
+sessionData.PackageRadarRelativePaths = radarRelativePaths;
+sessionData.SelectedRadarRelativePaths = selectedRadarRelativePaths;
+sessionData.PartSelection = localBuildPartSelectionContract( ...
+    options, selectedManifestIndices, radarScans, packageScanCount);
 sessionData.RadarScans = radarScans;
 sessionData.RadarTable = radarTable;
 sessionData.SeamTable = seamTable;
@@ -62,6 +73,26 @@ sessionData.NativeReaderContract = localBuildNativeReaderContract( ...
 sessionData.ChannelContract = localBuildChannelContract(radarScans);
 sessionData.TimingModel = localBuildTimingModel(manifest, radarScans);
 sessionData.CpiContract = localBuildCpiContract(radarScans);
+
+end
+
+function datasetRoot = localResolveDatasetRoot(repoRoot, datasetId, options)
+
+if isfield(options, "SessionRoot")
+    datasetRoot = string(options.SessionRoot);
+else
+    datasetRoot = fullfile(repoRoot, datasetId);
+end
+
+if ~isscalar(datasetRoot) || strlength(strtrim(datasetRoot)) == 0
+    error("loadIQData:InvalidSessionRoot", ...
+        "OPTIONS.SessionRoot must be a nonempty scalar path.");
+end
+
+if ~isfolder(datasetRoot)
+    error("loadIQData:MissingSessionRoot", ...
+        "Session folder not found: %s", datasetRoot);
+end
 
 end
 
@@ -74,6 +105,57 @@ catch manifestException
         "Failed to read manifest %s: %s", manifestPath, ...
         manifestException.message);
 end
+
+end
+
+function selectedManifestIndices = localResolvePartSelection(options, ...
+    packageScanCount)
+
+partSelection = "all";
+
+if isfield(options, "PartSelection")
+    partSelection = options.PartSelection;
+end
+
+if (isstring(partSelection) || ischar(partSelection)) && ...
+        isscalar(string(partSelection))
+    if strcmpi(strtrim(string(partSelection)), "all")
+        selectedManifestIndices = (1:packageScanCount).';
+        return;
+    end
+
+    error("loadIQData:InvalidPartSelection", ...
+        "PartSelection text must be ""all"".");
+end
+
+if isnumeric(partSelection) && isscalar(partSelection) && ...
+        isfinite(partSelection) && partSelection == 1
+    selectedManifestIndices = 1;
+    return;
+end
+
+error("loadIQData:InvalidPartSelection", ...
+    "PartSelection must be part 1 or ""all"" for this integration.");
+
+end
+
+function contract = localBuildPartSelectionContract(options, ...
+    selectedManifestIndices, radarScans, packageScanCount)
+
+requested = "all";
+
+if isfield(options, "PartSelection")
+    requested = string(options.PartSelection);
+end
+
+contract = struct();
+contract.Requested = requested;
+contract.PackagePartCount = packageScanCount;
+contract.SelectedPartCount = numel(selectedManifestIndices);
+contract.SelectedManifestIndices = selectedManifestIndices(:);
+contract.SelectedRepetitions = [radarScans.Repetition].';
+contract.AllPartsSelected = ...
+    numel(selectedManifestIndices) == packageScanCount;
 
 end
 
@@ -111,14 +193,24 @@ end
 
 function manifestTable = localBuildManifestTable(manifest, observedFiles)
 
+traceabilityTruthPaths = strings(0, 1);
+
+if isfield(manifest, "traceability_truth_file")
+    traceabilityTruthPaths = string(manifest.traceability_truth_file);
+    traceabilityTruthPaths = traceabilityTruthPaths( ...
+        strlength(strtrim(traceabilityTruthPaths)) > 0);
+end
+
 requiredPaths = [ ...
     string(manifest.radar_files(:)); ...
     string(manifest.adsb_files(:)); ...
+    traceabilityTruthPaths(:); ...
     string(manifest.log_files(:)) ...
     ];
 requiredType = [ ...
     repmat("radar", numel(manifest.radar_files), 1); ...
     repmat("truth", numel(manifest.adsb_files), 1); ...
+    repmat("truth", numel(traceabilityTruthPaths), 1); ...
     repmat("logs", numel(manifest.log_files), 1) ...
     ];
 manifestIndex = (1:numel(requiredPaths)).';
@@ -207,6 +299,7 @@ payloadBytes = zeros(scanCount, 1);
 wrapperOverheadBytes = zeros(scanCount, 1);
 antenna1 = strings(scanCount, 1);
 antenna2 = strings(scanCount, 1);
+channelLabelSource = strings(scanCount, 1);
 meanPowerCh1 = zeros(scanCount, 1);
 meanPowerCh2 = zeros(scanCount, 1);
 channelPowerDeltaDb = zeros(scanCount, 1);
@@ -244,6 +337,7 @@ for idx = 1:scanCount
     wrapperOverheadBytes(idx) = radarScans(idx).WrapperOverheadBytes;
     antenna1(idx) = radarScans(idx).Antenna1;
     antenna2(idx) = radarScans(idx).Antenna2;
+    channelLabelSource(idx) = radarScans(idx).ChannelLabelSource;
     meanPowerCh1(idx) = radarScans(idx).MeanPowerCh1;
     meanPowerCh2(idx) = radarScans(idx).MeanPowerCh2;
     channelPowerDeltaDb(idx) = 10 * log10(meanPowerCh1(idx) / meanPowerCh2(idx));
@@ -263,8 +357,9 @@ radarTable = table(manifestIndex, relativePath, repetition, ...
     nativeReaderFailureCategory, sampleRateHz, centerFrequencyHz, ...
     numSamples, numChannels, dataType, isComplex, sampleSpanS, durationS, ...
     recordingUtc, dateTimeText, dateTimeVsRecordingMs, fileBytes, ...
-    payloadBytes, wrapperOverheadBytes, antenna1, antenna2, meanPowerCh1, ...
-    meanPowerCh2, channelPowerDeltaDb, channelCorrelationMagnitude, ...
+    payloadBytes, wrapperOverheadBytes, antenna1, antenna2, ...
+    channelLabelSource, meanPowerCh1, meanPowerCh2, channelPowerDeltaDb, ...
+    channelCorrelationMagnitude, ...
     firstNonzeroIndexCh1, firstNonzeroIndexCh2, ...
     manifestOrderMatchesRepetition, filenameSuffixMatchesRepetition, ...
     VariableNames = {'ManifestIndex', 'RelativePath', 'Repetition', ...
@@ -274,8 +369,9 @@ radarTable = table(manifestIndex, relativePath, repetition, ...
     'NumSamples', 'NumChannels', 'DataType', 'IsComplex', 'SampleSpan_s', ...
     'Duration_s', 'RecordingUTC', 'DateTime', 'DateTimeVsRecording_ms', ...
     'FileBytes', 'PayloadBytes', 'WrapperOverheadBytes', 'Antenna1', ...
-    'Antenna2', 'MeanPowerCh1', 'MeanPowerCh2', 'ChannelPowerDelta_dB', ...
-    'ChannelCorrelationMagnitude', 'FirstNonzeroIndexCh1', ...
+    'Antenna2', 'ChannelLabelSource', 'MeanPowerCh1', 'MeanPowerCh2', ...
+    'ChannelPowerDelta_dB', 'ChannelCorrelationMagnitude', ...
+    'FirstNonzeroIndexCh1', ...
     'FirstNonzeroIndexCh2', 'ManifestOrderMatchesRepetition', ...
     'FilenameSuffixMatchesRepetition'});
 
@@ -378,6 +474,8 @@ nativeReaderContract.NativeReaderFailureMessage = ...
     nativeReaderContract.IsComplex = all([radarScans.IsComplex].');
     nativeReaderContract.Channel1Label = unique(string({radarScans.Antenna1}).');
     nativeReaderContract.Channel2Label = unique(string({radarScans.Antenna2}).');
+    nativeReaderContract.ChannelLabelSource = ...
+        unique(string({radarScans.ChannelLabelSource}).');
     nativeReaderContract.SampleRateHz = unique([radarScans.SampleRate].');
     nativeReaderContract.CenterFrequencyHz = unique([radarScans.CenterFrequency].');
     nativeReaderContract.PayloadBytes = unique([radarScans.PayloadBytes].');
@@ -408,6 +506,8 @@ channelContract.NumChannels = unique([radarScans.NumChannels].');
 channelContract.CanonicalRepresentation = "[N x 2] complex int16 matrix";
 channelContract.Channel1Label = unique(string({radarScans.Antenna1}).');
 channelContract.Channel2Label = unique(string({radarScans.Antenna2}).');
+channelContract.ChannelLabelSource = ...
+    unique(string({radarScans.ChannelLabelSource}).');
 channelContract.ChannelPowerDeltaDb = [ ...
     min(channelPowerRatioDb), ...
     max(channelPowerRatioDb) ...
@@ -476,7 +576,7 @@ end
 
 function value = localExtractFileSuffixRepetition(relativePath)
 
-token = regexp(relativePath, "_part(\d+)$", "tokens", "once");
+token = regexp(relativePath, "_part(\d+)(?:\.bb)?$", "tokens", "once");
 
 if isempty(token)
     error("loadIQData:InvalidRadarFilename", ...

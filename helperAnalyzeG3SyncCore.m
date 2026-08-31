@@ -40,6 +40,9 @@ analysis = struct();
 analysis.DatasetId = string(sessionData.DatasetId);
 analysis.StageId = "G3_Sync_Core";
 analysis.Options = localBuildOptionsOutput(resolvedOptions);
+analysis.RoleInfo = roleInfo;
+analysis.WindowObservations = windowObservations;
+analysis.GlobalCorrection = syncPrep.GlobalCorrection;
 analysis.QuestionSummaries = questionSummaries;
 analysis.LagTable = lagTable;
 analysis.ResidualFrequencyTable = residualFrequencyTable;
@@ -52,6 +55,16 @@ analysis.Metrics = localBuildMetrics(roleInfo, lagTable, ...
 analysis.Interpretation = interpretation;
 analysis.RecommendedStrategyCandidate = recommendedStrategyCandidate;
 analysis.BlockingFindings = blockingFindings;
+
+if height(sessionData.RadarTable) == 1
+    analysis.CrossPartRepeatabilityStatus = ...
+        "NOT_ASSESSED_SINGLE_PART";
+    analysis.Interpretation.CrossPartRepeatabilityStatus = ...
+        "NOT_ASSESSED_SINGLE_PART";
+else
+    analysis.CrossPartRepeatabilityStatus = "ASSESSED";
+    analysis.Interpretation.CrossPartRepeatabilityStatus = "ASSESSED";
+end
 
 end
 

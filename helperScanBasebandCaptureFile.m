@@ -220,9 +220,12 @@ channel1 = double(rawData(:, 1));
 channel2 = double(rawData(:, 2));
 channelCorrelationMagnitude = abs(sum(channel1 .* conj(channel2))) / ...
     (norm(channel1) * norm(channel2));
+[channelLabels, channelLabelSource] = localResolveChannelLabels( ...
+    metadata, numChannels);
+dateTimeZone = localResolveMetadataTimeZone(metadata);
 dateTimeLocal = datetime(string(metadata.DateTime), ...
     "InputFormat", "yyyy-MM-dd_HH-mm-ss.SSS", ...
-    "TimeZone", "America/New_York");
+    "TimeZone", dateTimeZone);
 dateTimeUtc = dateTimeLocal;
 dateTimeUtc.TimeZone = "UTC";
 recordingUtcDateTime = datetime(double(metadata.RecordingUTC), ...
@@ -242,8 +245,10 @@ scan.PayloadBytes = payloadBytes;
 scan.WrapperOverheadBytes = scan.FileBytes - scan.PayloadBytes;
 scan.SampleSpan_s = scan.NumSamples / scan.SampleRate;
 scan.Label = string(metadata.Label);
-scan.Antenna1 = string(metadata.Antenna1);
-scan.Antenna2 = string(metadata.Antenna2);
+scan.Antenna1 = channelLabels(1);
+scan.Antenna2 = channelLabels(2);
+scan.ChannelLabels = channelLabels;
+scan.ChannelLabelSource = channelLabelSource;
 scan.SessionID = string(metadata.SessionID);
 scan.DateTime = string(metadata.DateTime);
 scan.DateTimeVsRecording_ms = milliseconds(dateTimeUtc - ...
@@ -284,6 +289,36 @@ if includeSamples
     scan.Samples = rawData;
 else
     scan.Samples = complex(int16.empty(0, 0));
+end
+
+end
+
+function [channelLabels, source] = localResolveChannelLabels(metadata, ...
+    numChannels)
+
+channelLabels = "CH" + string(1:numChannels);
+source = "generated_index_labels";
+
+if ~isfield(metadata, "Antenna1") || ~isfield(metadata, "Antenna2")
+    return;
+end
+
+antennaLabels = [string(metadata.Antenna1), string(metadata.Antenna2)];
+
+if all(strlength(strtrim(antennaLabels)) > 0)
+    channelLabels(1:2) = antennaLabels;
+    source = "embedded_antenna_metadata";
+end
+
+end
+
+function timeZone = localResolveMetadataTimeZone(metadata)
+
+timeZone = "America/New_York";
+
+if isfield(metadata, "DataOrigin") && ...
+        strcmpi(string(metadata.DataOrigin), "synthetic")
+    timeZone = "UTC";
 end
 
 end
@@ -349,14 +384,16 @@ function metadata = localParseHeaderMetadataText(metadataText)
 
 metadata = struct();
 metadata.Label = localExtractQuotedMetadataValue(metadataText, "Label", "'");
-metadata.Antenna1 = localExtractQuotedMetadataValue(metadataText, ...
+metadata.Antenna1 = localExtractOptionalQuotedMetadataValue(metadataText, ...
     "Antenna1", """");
-metadata.Antenna2 = localExtractQuotedMetadataValue(metadataText, ...
+metadata.Antenna2 = localExtractOptionalQuotedMetadataValue(metadataText, ...
     "Antenna2", """");
 metadata.DateTime = localExtractQuotedMetadataValue(metadataText, ...
     "DateTime", """");
 metadata.SessionID = localExtractQuotedMetadataValue(metadataText, ...
     "SessionID", """");
+metadata.DataOrigin = localExtractOptionalQuotedMetadataValue(metadataText, ...
+    "DataOrigin", """");
 metadata.RecordingUTC = localExtractNumericMetadataValue(metadataText, ...
     "RecordingUTC");
 metadata.Duration_s = localExtractNumericMetadataValue(metadataText, ...
@@ -379,6 +416,21 @@ if isempty(token)
 end
 
 value = string(token{1});
+
+end
+
+function value = localExtractOptionalQuotedMetadataValue(metadataText, ...
+    fieldName, quoteCharacter)
+
+pattern = string(fieldName) + "=" + quoteCharacter + ...
+    "([^" + quoteCharacter + "]*)" + quoteCharacter;
+token = regexp(metadataText, pattern, "tokens", "once");
+
+if isempty(token)
+    value = "";
+else
+    value = string(token{1});
+end
 
 end
 
@@ -405,6 +457,10 @@ function numChannels = localCountMetadataChannels(metadataText)
 
 channelTokens = regexp(metadataText, "Antenna\d+=", "match");
 numChannels = double(numel(channelTokens));
+
+if numChannels == 0 && contains(metadataText, "DataOrigin='synthetic'")
+    numChannels = 2;
+end
 
 if numChannels < 2
     error("helperScanBasebandCaptureFile:InsufficientMetadataChannels", ...

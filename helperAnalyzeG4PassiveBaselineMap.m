@@ -20,8 +20,9 @@ end
 upstreamStatus = localResolveUpstreamStatus(g3SyncResults);
 localValidateUpstreamStatus(upstreamStatus);
 
+syncOptions = localBuildSyncOptions(options);
 syncPrep = helperPrepareG3SyncInputs(sessionData, collectionMetadataInfo, ...
-    options, g3SyncResults);
+    syncOptions, g3SyncResults);
 resolvedOptions = localResolveOptions(syncPrep.ResolvedOptions, options);
 appliedCorrection = localResolveAppliedCorrection(syncPrep, resolvedOptions);
 selectedWindows = localBuildSelectedWindowTable(syncPrep.WindowObservations, ...
@@ -60,11 +61,38 @@ analysis.MapSummaryTable = mapSummaryTable;
 analysis.RepeatabilityTable = repeatabilityTable;
 analysis.CpiSelectionTable = cpiSelectionTable;
 analysis.FullRateAuditSummaryTable = fullRateAuditSummaryTable;
+
+if resolvedOptions.RunFullRateAudit
+    analysis.FullRateAuditStatus = "executed";
+else
+    analysis.FullRateAuditStatus = "NOT_RUN_QUICK_MODE";
+end
+
 analysis.QuestionSummaries = questionSummaries;
 analysis.Interpretation = interpretation;
 analysis.RecommendedBaselineCpiLabel = recommendedBaselineCpiLabel;
 analysis.RepresentativeMaps = representativeMaps;
 analysis.RawAxisRepresentativeMaps = representativeMaps;
+
+end
+
+function syncOptions = localBuildSyncOptions(options)
+
+syncOptions = options;
+mapOnlyFields = [ ...
+    "MapCpiLabels"; ...
+    "MapCpiDurations_s"; ...
+    "MapWindowLabels"; ...
+    "RunFullRateAudit" ...
+    ];
+
+for idx = 1:numel(mapOnlyFields)
+    fieldName = mapOnlyFields(idx);
+
+    if isfield(syncOptions, fieldName)
+        syncOptions = rmfield(syncOptions, fieldName);
+    end
+end
 
 end
 
@@ -214,6 +242,7 @@ resolvedOptions.FullRateAuditRepetitions = [1; 8; 15];
 resolvedOptions.FullRateAuditWindowLabel = "center";
 resolvedOptions.FullRateAuditCpiLabels = ["short"; "medium"; "long"];
 resolvedOptions.FullRateAuditMethod = "ambgfun_cut_proxy";
+resolvedOptions.RunFullRateAudit = true;
 resolvedOptions.FullRateAuditDelayCutSearchRadius_nativeSamples = ...
     2.0 * resolvedOptions.MapDecimationFactor;
 resolvedOptions.FullRateAuditDopplerCutSearchRadius_Hz = 10.0;
@@ -242,15 +271,36 @@ for idx = 1:numel(optionFields)
     resolvedOptions.(fieldName) = options.(fieldName);
 end
 
-resolvedOptions.CpiLabels = [ ...
-    "short"; ...
-    "short_mid"; ...
-    "medium"; ...
-    "medium_long"; ...
-    "long" ...
-    ];
-resolvedOptions.CpiDurations_s = [0.025; 0.0375; 0.050; 0.075; 0.100];
+hasExplicitCpiLabels = isfield(options, "MapCpiLabels");
+hasExplicitCpiDurations = isfield(options, "MapCpiDurations_s");
+
+if xor(hasExplicitCpiLabels, hasExplicitCpiDurations)
+    error("helperAnalyzeG4PassiveBaselineMap:IncompleteCpiDefinition", ...
+        "Explicit G4 CPI selection requires labels and durations.");
+end
+
+if hasExplicitCpiLabels
+    resolvedOptions.CpiLabels = options.MapCpiLabels;
+    resolvedOptions.CpiDurations_s = options.MapCpiDurations_s;
+else
+    resolvedOptions.CpiLabels = [ ...
+        "short"; ...
+        "short_mid"; ...
+        "medium"; ...
+        "medium_long"; ...
+        "long" ...
+        ];
+    resolvedOptions.CpiDurations_s = ...
+        [0.025; 0.0375; 0.050; 0.075; 0.100];
+end
+
+resolvedOptions.CpiLabels = string(resolvedOptions.CpiLabels(:));
+resolvedOptions.CpiDurations_s = double(resolvedOptions.CpiDurations_s(:));
 resolvedOptions.WindowHopFractions = ones(size(resolvedOptions.CpiDurations_s));
+
+if isfield(options, "MapWindowLabels")
+    resolvedOptions.WindowLabels = options.MapWindowLabels;
+end
 
 if isfield(options, "MapSampleRateHz")
     resolvedOptions.MapSampleRateHz = double(options.MapSampleRateHz);
@@ -301,6 +351,13 @@ resolvedOptions.FullRateAuditCpiLabels = string( ...
     resolvedOptions.FullRateAuditCpiLabels(:));
 resolvedOptions.FullRateAuditWindowLabel = string( ...
     resolvedOptions.FullRateAuditWindowLabel);
+resolvedOptions.RunFullRateAudit = logical(resolvedOptions.RunFullRateAudit);
+
+if ~isscalar(resolvedOptions.RunFullRateAudit)
+    error("helperAnalyzeG4PassiveBaselineMap:InvalidRunFullRateAudit", ...
+        "RunFullRateAudit must be a logical scalar.");
+end
+
 resolvedOptions.MapCpiSampleCounts = round( ...
     resolvedOptions.CpiDurations_s .* resolvedOptions.MapSampleRateHz);
 resolvedOptions.MapCpiDefinitions = localBuildMapCpiDefinitions( ...
@@ -308,9 +365,13 @@ resolvedOptions.MapCpiDefinitions = localBuildMapCpiDefinitions( ...
     resolvedOptions.MapCpiSampleCounts);
 resolvedOptions.WindowLabels = string(resolvedOptions.WindowLabels(:));
 
-if numel(resolvedOptions.WindowLabels) ~= 3
+if isempty(resolvedOptions.WindowLabels) || ...
+        numel(unique(resolvedOptions.WindowLabels)) ~= ...
+        numel(resolvedOptions.WindowLabels) || ...
+        any(~ismember(resolvedOptions.WindowLabels, ...
+        ["early", "center", "late"]))
     error("helperAnalyzeG4PassiveBaselineMap:InvalidWindowLabels", ...
-        "Stage 4 requires the fixed early, center, and late window set.");
+        "WindowLabels must be unique values from early, center, and late.");
 end
 
 if any(resolvedOptions.MapCpiSampleCounts <= 0)
@@ -381,11 +442,8 @@ for cpiIndex = 1:numel(resolvedOptions.CpiLabels)
                 windowObservations, repetitionValue, cpiLabel, cpiIndex, ...
                 resolvedOptions);
         else
-            selectedIndices = [ ...
-                1; ...
-                ceil(height(subset) / 2); ...
-                height(subset) ...
-                ];
+            selectedIndices = localResolveSelectedWindowIndices( ...
+                height(subset), resolvedOptions.WindowLabels);
             selection = subset(selectedIndices, :);
             selection.WindowLabel = resolvedOptions.WindowLabels;
         end
@@ -420,11 +478,8 @@ cpiSamples = round(resolvedOptions.CpiDurations_s(cpiIndex) .* ...
     resolvedOptions.SampleRateHz);
 maxStartSample = resolvedOptions.SamplesPerRepetition - cpiSamples + 1;
 windowStarts = 1:cpiSamples:maxStartSample;
-selectedIndices = [ ...
-    1; ...
-    ceil(numel(windowStarts) / 2); ...
-    numel(windowStarts) ...
-    ];
+    selectedIndices = localResolveSelectedWindowIndices( ...
+        numel(windowStarts), resolvedOptions.WindowLabels);
 selection = lowerSubset(ones(numel(selectedIndices), 1), :);
 selection.WindowLabel = strings(numel(selectedIndices), 1);
 
@@ -438,6 +493,24 @@ for idx = 1:numel(selectedIndices)
         cpiLabel, resolvedOptions.CpiDurations_s(cpiIndex), ...
         cpiSamples, windowIndex, windowStartSample, windowStopSample, ...
         resolvedOptions.WindowLabels(idx));
+end
+
+end
+
+function selectedIndices = localResolveSelectedWindowIndices( ...
+    availableWindowCount, windowLabels)
+
+selectedIndices = zeros(numel(windowLabels), 1);
+
+for idx = 1:numel(windowLabels)
+    switch string(windowLabels(idx))
+        case "early"
+            selectedIndices(idx) = 1;
+        case "center"
+            selectedIndices(idx) = ceil(availableWindowCount / 2);
+        case "late"
+            selectedIndices(idx) = availableWindowCount;
+    end
 end
 
 end
@@ -715,6 +788,12 @@ end
 function fullRateAuditSummaryTable = localBuildFullRateAuditSummaryTable( ...
     sessionData, syncPrep, appliedCorrection, mapSummaryTable, ...
     resolvedOptions)
+
+if ~resolvedOptions.RunFullRateAudit
+    fullRateAuditSummaryTable = struct2table(repmat( ...
+        localBuildFullRateAuditRowTemplate(), 0, 1));
+    return;
+end
 
 auditCpiLabels = string(resolvedOptions.FullRateAuditCpiLabels(:));
 auditRepetitions = double(resolvedOptions.FullRateAuditRepetitions(:));
@@ -1661,6 +1740,15 @@ commonMask = ~localBuildExclusionMask(reviewDelayAxis_samples, ...
     baselineProductDefinition.ZeroDopplerRidgeExclusion_Hz;
 similarityScore = zeros(mapCount, 1);
 
+if mapCount == 1
+    representativeIndex = 1;
+    delaySpread_samples = 0;
+    dopplerSpread_Hz = 0;
+    maskedCorrelationMedian = NaN;
+    maskedCorrelationMinimum = NaN;
+    interpretationLabel = "NOT_ASSESSED_SINGLE_PART";
+    rationale = "Repeatability is NOT_ASSESSED_SINGLE_PART.";
+else
 for rowIndex = 1:mapCount - 1
     for columnIndex = rowIndex + 1:mapCount
         pairIndex = pairIndex + 1;
@@ -1712,6 +1800,7 @@ rationale = sprintf("Masked repeatability median %.3f with delay spread " + ...
     "%.2f map samples and Doppler spread %.2f Hz across %d repetitions.", ...
     maskedCorrelationMedian, delaySpread_samples, dopplerSpread_Hz, ...
     mapCount);
+end
 
 repeatabilityRow = struct();
 repeatabilityRow.QuestionId = "Q3";
@@ -1794,7 +1883,7 @@ for cpiIndex = 1:numel(resolvedOptions.CpiLabels)
     repeatabilityInterpretationLabel = localCollapseLabels( ...
         repeatabilitySubset.InterpretationLabel);
     rateAuditAgreementLabel = localResolveRateAuditAgreementLabel( ...
-        cpiLabel, fullRateAuditSummaryTable);
+        cpiLabel, fullRateAuditSummaryTable, resolvedOptions);
     sceneUsabilitySummary = sprintf("score=%.2f | median_off_origin=" + ...
         "%.3f | median_occupied_minus20dB=%.4f | " + ...
         "median_zero_doppler=%.3f | median_dp_to_off_ridge=%.2f dB", ...
@@ -1815,7 +1904,7 @@ for cpiIndex = 1:numel(resolvedOptions.CpiLabels)
         "QuestionId", "Q4", ...
         "CpiLabel", cpiLabel, ...
         "G3EligibilityLabel", cpiEligibility.Label, ...
-        "WindowCoverage", "early, center, late across 15 repetitions", ...
+        "WindowCoverage", localBuildWindowCoverageLabel(mapSubset), ...
         "SceneUsabilitySummary", sceneUsabilitySummary, ...
         "RepeatabilitySummary", repeatabilitySummary, ...
         "SceneObservabilityScore", double(sceneScore), ...
@@ -1889,6 +1978,16 @@ cpiSelectionTable = struct2table(selectionRows);
 cpiSelectionTable = sortrows(cpiSelectionTable, "ProvisionalRank");
 
 end
+
+function label = localBuildWindowCoverageLabel(mapSubset)
+
+windowLabels = unique(string(mapSubset.WindowLabel), "stable");
+repetitionCount = numel(unique(double(mapSubset.Repetition)));
+label = sprintf("%s across %d selected repetition(s)", ...
+    strjoin(windowLabels, ", "), repetitionCount);
+
+end
+
 function selectionRowTemplate = localBuildCpiSelectionRowTemplate()
 
 selectionRowTemplate = struct( ...
@@ -1955,7 +2054,12 @@ end
 end
 
 function label = localResolveRateAuditAgreementLabel(cpiLabel, ...
-    fullRateAuditSummaryTable)
+    fullRateAuditSummaryTable, resolvedOptions)
+
+if ~resolvedOptions.RunFullRateAudit
+    label = "NOT_RUN_QUICK_MODE";
+    return;
+end
 
 subset = fullRateAuditSummaryTable( ...
     fullRateAuditSummaryTable.CpiLabel == cpiLabel, :);
@@ -2101,8 +2205,8 @@ questionRows(2) = struct( ...
 questionRows(3) = struct( ...
     "QuestionId", "Q3", ...
     "QuestionText", ...
-    "Are the baseline maps repeatable across the fixed early, center, " + ...
-    "and late windows and the 15 repeated captures?", ...
+    "Are the baseline maps repeatable across the selected windows and " + ...
+    "capture parts?", ...
     "ChosenObservables", ...
     "masked map correlation, direct-path coordinate spread, direct-path " + ...
     "width stability", ...
@@ -2203,6 +2307,9 @@ if rateAuditAgreementLabel == "disagreement"
 elseif rateAuditAgreementLabel == "caveated_agreement"
     rateAuditInterpretationLabel = "caveated";
     rateAuditCaveatCodes = "reduced_rate_audit_caveated_agreement";
+elseif rateAuditAgreementLabel == "NOT_RUN_QUICK_MODE"
+    rateAuditInterpretationLabel = "caveated";
+    rateAuditCaveatCodes = "full_rate_audit_not_run_quick_mode";
 end
 
 overallLabel = localCollapseLabels([ ...
@@ -2272,7 +2379,9 @@ function label = localCollapseRateAuditAgreementLabels(labelVector)
 
 labelVector = string(labelVector(:));
 
-if any(labelVector == "disagreement")
+if isempty(labelVector)
+    label = "NOT_RUN_QUICK_MODE";
+elseif any(labelVector == "disagreement")
     label = "disagreement";
 elseif any(labelVector == "caveated_agreement")
     label = "caveated_agreement";
@@ -2492,7 +2601,8 @@ labelVector = string(labelVector(:));
 
 if any(labelVector == "blocked")
     label = "blocked";
-elseif any(labelVector == "caveated")
+elseif any(labelVector == "caveated") || ...
+        any(labelVector == "NOT_ASSESSED_SINGLE_PART")
     label = "caveated";
 else
     label = "ready";

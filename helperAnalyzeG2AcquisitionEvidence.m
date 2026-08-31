@@ -10,15 +10,17 @@ arguments
 end
 
 resolvedOptions = localResolveOptions(sessionData, options);
+roleInfo = helperResolveChannelRoles(sessionData, collectionMetadataInfo, ...
+    resolvedOptions);
 [metadataAuditTable, auditFlags] = localBuildMetadataAuditTable( ...
-    sessionData, captureLogInfo, collectionMetadataInfo);
+    sessionData, captureLogInfo, collectionMetadataInfo, resolvedOptions);
 receiverStateTable = localBuildReceiverStateTable(sessionData, ...
     captureLogInfo, collectionMetadataInfo);
 [channelRoleEvidenceTable, roleEvidence] = localBuildChannelRoleEvidence( ...
-    sessionData, resolvedOptions);
+    sessionData, roleInfo, resolvedOptions);
 [collectionValidityVerdict, aircraftReadinessImpact, ...
     classificationImpact, decisionTrace] = localDetermineStageVerdicts( ...
-    auditFlags, roleEvidence);
+    auditFlags, roleEvidence, roleInfo, resolvedOptions);
 
 missingRequiredMask = metadataAuditTable.Required & ...
     ~metadataAuditTable.Present;
@@ -36,6 +38,8 @@ analysis.ClassificationImpact = classificationImpact;
 analysis.DecisionTrace = decisionTrace;
 analysis.MissingRequiredItems = missingRequiredItems;
 analysis.RoleEvidence = roleEvidence;
+analysis.RoleInfo = roleInfo;
+analysis.DataProfile = string(resolvedOptions.DataProfile);
 analysis.CollectionMetadataInfo = collectionMetadataInfo;
 analysis.Options = rmfield(resolvedOptions, "WelchWindow");
 analysis.Metrics = localBuildMetrics(metadataAuditTable, auditFlags, ...
@@ -57,6 +61,7 @@ resolvedOptions.WelchNfft = 4096;
 resolvedOptions.CorrelationSampleCount = 131072;
 resolvedOptions.CorrelationMaxLagSamples = 4096;
 resolvedOptions.ReferenceCandidatePowerDeltaThreshold_dB = 3.0;
+resolvedOptions.DataProfile = "field_capture";
 resolvedOptions.WelchWindow = hann(resolvedOptions.WelchLength, ...
     "periodic");
 
@@ -75,7 +80,7 @@ resolvedOptions.WelchWindow = hann(resolvedOptions.WelchLength, ...
 end
 
 function [metadataAuditTable, auditFlags] = localBuildMetadataAuditTable( ...
-    sessionData, captureLogInfo, collectionMetadataInfo)
+    sessionData, captureLogInfo, collectionMetadataInfo, resolvedOptions)
 
 manifest = sessionData.Manifest;
 radarTable = sessionData.RadarTable;
@@ -265,6 +270,16 @@ rows(end + 1) = localMakeAuditRow("controls", ...
 
 metadataAuditTable = struct2table(rows);
 
+if strcmpi(string(resolvedOptions.DataProfile), "synthetic")
+    fieldOnlyMask = ismember(metadataAuditTable.Category, ...
+        ["capture_log", "manual_metadata", "controls"]);
+    metadataAuditTable.Required(fieldOnlyMask) = false;
+    metadataAuditTable.Present(fieldOnlyMask) = false;
+    metadataAuditTable.ObservedValue(fieldOnlyMask) = "NOT_APPLICABLE";
+    metadataAuditTable.Note(fieldOnlyMask) = ...
+        "NOT_APPLICABLE for packaged synthetic data.";
+end
+
 end
 
 function receiverStateTable = localBuildReceiverStateTable(sessionData, ...
@@ -395,10 +410,9 @@ receiverStateTable = struct2table(rows);
 end
 
 function [channelRoleEvidenceTable, roleEvidence] = ...
-    localBuildChannelRoleEvidence(sessionData, resolvedOptions)
+    localBuildChannelRoleEvidence(sessionData, roleInfo, resolvedOptions)
 
 radarTable = sessionData.RadarTable;
-datasetRoot = string(sessionData.DatasetRoot);
 repetitionCount = height(radarTable);
 sampleRateHz = resolvedOptions.SampleRateHz;
 
@@ -419,11 +433,9 @@ coherenceFrequencyHz = [];
 correlationLags = [];
 
 for idx = 1:repetitionCount
-    absoluteFilePath = fullfile(datasetRoot, ...
-        strrep(radarTable.RelativePath(idx), "/", filesep));
-    scan = helperScanBasebandCaptureFile(absoluteFilePath, true);
-    channel1 = double(scan.Samples(:, 1));
-    channel2 = double(scan.Samples(:, 2));
+    samples = helperResolveRadarSamples(sessionData, idx);
+    channel1 = double(samples(:, 1));
+    channel2 = double(samples(:, 2));
 
     [channel1Psd, psdFrequencyHz] = pwelch(channel1, ...
         resolvedOptions.WelchWindow, resolvedOptions.WelchOverlap, ...
@@ -493,12 +505,22 @@ roleEvidence = struct();
 roleEvidence.PsdFrequencyHz = psdFrequencyHz;
 roleEvidence.MeanChannel1Psd = meanChannel1Psd;
 roleEvidence.MeanChannel2Psd = meanChannel2Psd;
+roleEvidence.ReferenceMeanPsd = localSelectRolePsd( ...
+    meanChannel1Psd, meanChannel2Psd, roleInfo.ReferenceColumnIndex);
+roleEvidence.SurveillanceMeanPsd = localSelectRolePsd( ...
+    meanChannel1Psd, meanChannel2Psd, ...
+    roleInfo.SurveillanceColumnIndex);
+roleEvidence.ReferenceLabel = roleInfo.ReferenceLabel;
+roleEvidence.SurveillanceLabel = roleInfo.SurveillanceLabel;
+roleEvidence.RoleSource = roleInfo.RoleSource;
 roleEvidence.CoherenceFrequencyHz = coherenceFrequencyHz;
 roleEvidence.MeanCoherenceSpectrum = meanCoherenceSpectrum;
 roleEvidence.CorrelationLagsSamples = correlationLags;
 roleEvidence.MedianCorrelationMagnitude = medianCorrelationMagnitude;
-roleEvidence.ReferenceCandidatePassFraction = ...
-    mean(referenceCandidateIsChannel1);
+expectedInference = "channel_" + ...
+    string(roleInfo.ReferenceColumnIndex) + "_reference_candidate";
+roleEvidence.ReferenceCandidatePassFraction = mean( ...
+    roleInference == expectedInference);
 roleEvidence.ChannelPowerDelta_dB_Min = min(channelPowerDeltaDb);
 roleEvidence.ChannelPowerDelta_dB_Max = max(channelPowerDeltaDb);
 roleEvidence.ChannelPowerDelta_dB_Median = median(channelPowerDeltaDb);
@@ -512,9 +534,37 @@ roleEvidence.IqOnlyMappingInference = localSummarizeRoleInference( ...
 
 end
 
+function spectrum = localSelectRolePsd(channel1Psd, channel2Psd, ...
+    channelIndex)
+
+if channelIndex == 1
+    spectrum = channel1Psd;
+else
+    spectrum = channel2Psd;
+end
+
+end
+
 function [collectionValidityVerdict, aircraftReadinessImpact, ...
     classificationImpact, decisionTrace] = localDetermineStageVerdicts( ...
-    auditFlags, roleEvidence)
+    auditFlags, roleEvidence, roleInfo, resolvedOptions)
+
+if strcmpi(string(resolvedOptions.DataProfile), "synthetic")
+    collectionValidityVerdict = "synthetic_hardware_checks_not_applicable";
+    aircraftReadinessImpact = "synthetic_numeric_analysis_only";
+    classificationImpact = "Field-hardware evidence is NOT_APPLICABLE; " + ...
+        "the explicit generator channel contract governs this run.";
+    decisionTrace = [ ...
+        "Data profile: synthetic"; ...
+        "Field hardware checks: NOT_APPLICABLE"; ...
+        "Role source: " + roleInfo.RoleSource; ...
+        sprintf("Reference-role power-order support fraction: %.3f", ...
+        roleEvidence.ReferenceCandidatePassFraction); ...
+        sprintf("Median peak correlation magnitude: %.3f", ...
+        roleEvidence.PeakCorrelationMagnitude_Median) ...
+        ];
+    return;
+end
 
 coreEvidencePresent = all([ ...
     auditFlags.ManifestSessionIdPresent; ...

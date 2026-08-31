@@ -9,7 +9,8 @@ arguments
 end
 
 resolvedOptions = localResolveOptions(sessionData, options);
-roleInfo = localResolveRoleInfo(sessionData, collectionMetadataInfo);
+roleInfo = localResolveRoleInfo(sessionData, collectionMetadataInfo, ...
+    resolvedOptions);
 [receiverIntegrityTable, channelSummaryTable, roleEvidence] = ...
     localBuildReceiverIntegrityTables(sessionData, roleInfo, ...
     resolvedOptions);
@@ -100,56 +101,11 @@ resolvedOptions.WelchWindow = hann(resolvedOptions.WelchLength, ...
 
 end
 
-function roleInfo = localResolveRoleInfo(sessionData, collectionMetadataInfo)
+function roleInfo = localResolveRoleInfo(sessionData, ...
+    collectionMetadataInfo, resolvedOptions)
 
-channel1Label = string(sessionData.RadarTable.Antenna1(1));
-channel2Label = string(sessionData.RadarTable.Antenna2(1));
-referenceLabel = strtrim( ...
-    string(collectionMetadataInfo.ReferenceChannel.ChannelLabel));
-surveillanceLabel = strtrim( ...
-    string(collectionMetadataInfo.SurveillanceChannel.ChannelLabel));
-
-roleInfo = struct();
-roleInfo.Channel1Label = channel1Label;
-roleInfo.Channel2Label = channel2Label;
-roleInfo.ReferenceLabel = "";
-roleInfo.SurveillanceLabel = "";
-roleInfo.ReferenceColumnIndex = NaN;
-roleInfo.SurveillanceColumnIndex = NaN;
-roleInfo.RoleSource = "channel_order_fallback_unverified";
-roleInfo.RoleNote = "Manual role mapping was unavailable or incomplete. " + ...
-    "Stage 2 uses channel order fallback only.";
-
-manualMappingValid = collectionMetadataInfo.MetadataPresent && ...
-    collectionMetadataInfo.SessionIdMatches && ...
-    strlength(referenceLabel) > 0 && ...
-    strlength(surveillanceLabel) > 0 && ...
-    any(referenceLabel == [channel1Label; channel2Label]) && ...
-    any(surveillanceLabel == [channel1Label; channel2Label]) && ...
-    referenceLabel ~= surveillanceLabel;
-
-if manualMappingValid
-    roleInfo.ReferenceLabel = referenceLabel;
-    roleInfo.SurveillanceLabel = surveillanceLabel;
-    roleInfo.RoleSource = "collection_metadata_manual_mapping";
-    roleInfo.RoleNote = "Stage 2 uses the Stage 1 accepted manual " + ...
-        "channel-role mapping from collection_metadata.json.";
-else
-    roleInfo.ReferenceLabel = channel1Label;
-    roleInfo.SurveillanceLabel = channel2Label;
-end
-
-if roleInfo.ReferenceLabel == channel1Label
-    roleInfo.ReferenceColumnIndex = 1;
-else
-    roleInfo.ReferenceColumnIndex = 2;
-end
-
-if roleInfo.SurveillanceLabel == channel1Label
-    roleInfo.SurveillanceColumnIndex = 1;
-else
-    roleInfo.SurveillanceColumnIndex = 2;
-end
+roleInfo = helperResolveChannelRoles(sessionData, collectionMetadataInfo, ...
+    resolvedOptions);
 
 end
 
@@ -158,7 +114,6 @@ function [receiverIntegrityTable, channelSummaryTable, roleEvidence] = ...
     resolvedOptions)
 
 radarTable = sessionData.RadarTable;
-datasetRoot = string(sessionData.DatasetRoot);
 repetitionCount = height(radarTable);
 referencePsdAccumulator = [];
 surveillancePsdAccumulator = [];
@@ -201,11 +156,9 @@ rowTemplate = struct( ...
 rows = repmat(rowTemplate, repetitionCount, 1);
 
 for idx = 1:repetitionCount
-    absoluteFilePath = fullfile(datasetRoot, ...
-        strrep(radarTable.RelativePath(idx), "/", filesep));
-    scan = helperScanBasebandCaptureFile(absoluteFilePath, true);
-    referenceSamples = double(scan.Samples(:, roleInfo.ReferenceColumnIndex));
-    surveillanceSamples = double(scan.Samples(:, ...
+    samples = helperResolveRadarSamples(sessionData, idx);
+    referenceSamples = double(samples(:, roleInfo.ReferenceColumnIndex));
+    surveillanceSamples = double(samples(:, ...
         roleInfo.SurveillanceColumnIndex));
 
     [referenceMetrics, referencePsd, psdFrequencyHz] = ...
@@ -779,8 +732,11 @@ function [analysisValidity, developmentReadiness, ...
     receiverIntegrityTable, channelSummaryTable, roleInfo, ...
     receiverIntegrityVerdict, resolvedOptions)
 
-hasVerifiedRoleMapping = roleInfo.RoleSource == ...
-    "collection_metadata_manual_mapping";
+hasVerifiedRoleMapping = ismember(roleInfo.RoleSource, [ ...
+    "collection_metadata_manual_mapping"; ...
+    "explicit_generator_contract"; ...
+    "explicit_option_mapping" ...
+    ]);
 hasFiniteReceiverMetrics = localTableHasFiniteNumericValues( ...
     receiverIntegrityTable);
 hasFiniteChannelMetrics = localTableHasFiniteNumericValues( ...

@@ -24,7 +24,7 @@ candidateProfiles = localBuildCandidateProfiles(resolvedOptions);
 candidateTable = localBuildCandidateTable(candidateProfiles, ...
     resolvedOptions);
 roleInfo = localResolveRoleInfo(sessionData, collectionMetadataInfo, ...
-    g4Analysis);
+    g4Analysis, resolvedOptions);
 appliedCorrection = localResolveAppliedCorrection(g4Analysis);
 productDefinition = localResolveProductDefinition(g4Analysis, ...
     resolvedOptions);
@@ -410,41 +410,25 @@ candidateTable.MinProtectedRetentionRatio = repmat( ...
 end
 
 function roleInfo = localResolveRoleInfo(sessionData, ...
-    collectionMetadataInfo, g4Analysis)
+    collectionMetadataInfo, g4Analysis, resolvedOptions)
 
-channelLabels = [string(sessionData.RadarTable.Antenna1(1)); ...
-    string(sessionData.RadarTable.Antenna2(1))];
-referenceLabel = localResolveG4Label(g4Analysis, "ReferenceLabel");
-surveillanceLabel = localResolveG4Label(g4Analysis, "SurveillanceLabel");
+roleInfo = helperResolveChannelRoles(sessionData, collectionMetadataInfo, ...
+    resolvedOptions);
+g4ReferenceLabel = localResolveG4Label(g4Analysis, "ReferenceLabel");
+g4SurveillanceLabel = localResolveG4Label(g4Analysis, ...
+    "SurveillanceLabel");
 
-if strlength(referenceLabel) == 0 && isfield(collectionMetadataInfo, ...
-        "ReferenceChannel")
-    referenceLabel = string( ...
-        collectionMetadataInfo.ReferenceChannel.ChannelLabel);
+if strlength(g4ReferenceLabel) > 0 && ...
+        roleInfo.ReferenceLabel ~= g4ReferenceLabel
+    error("helperAnalyzeG5Mitigation:ReferenceRoleMismatch", ...
+        "Explicit G5 reference role does not match the G4 result.");
 end
 
-if strlength(surveillanceLabel) == 0 && isfield(collectionMetadataInfo, ...
-        "SurveillanceChannel")
-    surveillanceLabel = string( ...
-        collectionMetadataInfo.SurveillanceChannel.ChannelLabel);
+if strlength(g4SurveillanceLabel) > 0 && ...
+        roleInfo.SurveillanceLabel ~= g4SurveillanceLabel
+    error("helperAnalyzeG5Mitigation:SurveillanceRoleMismatch", ...
+        "Explicit G5 surveillance role does not match the G4 result.");
 end
-
-referenceIndex = find(channelLabels == referenceLabel, 1, "first");
-surveillanceIndex = find(channelLabels == surveillanceLabel, 1, "first");
-
-if isempty(referenceIndex) || isempty(surveillanceIndex) || ...
-        referenceIndex == surveillanceIndex
-    error("helperAnalyzeG5Mitigation:InvalidRoleMapping", ...
-        "G5 could not resolve distinct reference and surveillance channels.");
-end
-
-roleInfo = struct();
-roleInfo.ReferenceLabel = referenceLabel;
-roleInfo.SurveillanceLabel = surveillanceLabel;
-roleInfo.ReferenceColumnIndex = double(referenceIndex);
-roleInfo.SurveillanceColumnIndex = double(surveillanceIndex);
-roleInfo.RoleSource = "g4_interpretation_or_collection_metadata";
-roleInfo.RoleNote = "G5 uses the upstream accepted role mapping.";
 
 end
 
@@ -625,6 +609,7 @@ for rowIndex = 1:rowCount
         end
     end
 
+    localValidateCandidateCoordinates(candidateProducts, selectedRow);
     protectedRegion = localBuildProtectedRegion(candidateProducts{1}, ...
         productDefinition, resolvedOptions);
 
@@ -640,6 +625,28 @@ end
 metricTable = struct2table(metricRows(1:metricIndex));
 protectedDetailTable = struct2table(protectedRows(1:protectedIndex));
 residualErrorPowerTable = struct2table(residualRows(1:residualIndex));
+
+end
+
+function localValidateCandidateCoordinates(candidateProducts, selectedRow)
+
+referenceProduct = candidateProducts{1};
+
+for idx = 2:numel(candidateProducts)
+    candidateProduct = candidateProducts{idx};
+    sameMapSize = isequal(size(candidateProduct.MapLinear), ...
+        size(referenceProduct.MapLinear));
+    sameDelayAxis = isequal(candidateProduct.RawDelayAxis_samples, ...
+        referenceProduct.RawDelayAxis_samples);
+    sameDopplerAxis = isequal(candidateProduct.RawDopplerAxis_Hz, ...
+        referenceProduct.RawDopplerAxis_Hz);
+
+    if ~(sameMapSize && sameDelayAxis && sameDopplerAxis)
+        error("helperAnalyzeG5Mitigation:CandidateCoordinateMismatch", ...
+            "G5 candidate maps differ in size or axes for repetition %d.", ...
+            selectedRow.Repetition(1));
+    end
+end
 
 end
 

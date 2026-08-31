@@ -61,6 +61,7 @@ resolvedOptions.ExpectedDatasetId = "20260622T102123";
 resolvedOptions.ExpectedReferenceLabel = "RF1:RX2";
 resolvedOptions.ExpectedSurveillanceLabel = "RF0:RX2";
 resolvedOptions.ExpectedRepetitionCount = 15;
+resolvedOptions.DataProfile = "field_capture";
 resolvedOptions.SampleRateHz = double(sampleRateVector(1));
 resolvedOptions.SamplesPerRepetition = double(sampleCountVector(1));
 resolvedOptions.CpiLabels = ["short"; "medium"; "long"];
@@ -156,44 +157,8 @@ end
 function roleInfo = localResolveRoleInfo(sessionData, collectionMetadataInfo, ...
     resolvedOptions)
 
-channel1Label = string(sessionData.RadarTable.Antenna1(1));
-channel2Label = string(sessionData.RadarTable.Antenna2(1));
-referenceLabel = strtrim( ...
-    string(collectionMetadataInfo.ReferenceChannel.ChannelLabel));
-surveillanceLabel = strtrim( ...
-    string(collectionMetadataInfo.SurveillanceChannel.ChannelLabel));
-
-roleInfo = struct();
-roleInfo.ReferenceLabel = referenceLabel;
-roleInfo.SurveillanceLabel = surveillanceLabel;
-roleInfo.ReferenceColumnIndex = NaN;
-roleInfo.SurveillanceColumnIndex = NaN;
-roleInfo.RoleSource = "collection_metadata_manual_mapping";
-roleInfo.RoleNote = "Stage 3 keeps the accepted Stage 2 role mapping " + ...
-    "fixed and does not reopen G1 or G2 role assumptions.";
-
-manualMappingValid = collectionMetadataInfo.MetadataPresent && ...
-    collectionMetadataInfo.SessionIdMatches && ...
-    any(referenceLabel == [channel1Label; channel2Label]) && ...
-    any(surveillanceLabel == [channel1Label; channel2Label]) && ...
-    referenceLabel ~= surveillanceLabel;
-
-if ~manualMappingValid
-    error("helperPrepareG3SyncInputs:MissingRoleMapping", ...
-        "Stage 3 requires the accepted Stage 2 manual role mapping.");
-end
-
-if referenceLabel == channel1Label
-    roleInfo.ReferenceColumnIndex = 1;
-else
-    roleInfo.ReferenceColumnIndex = 2;
-end
-
-if surveillanceLabel == channel1Label
-    roleInfo.SurveillanceColumnIndex = 1;
-else
-    roleInfo.SurveillanceColumnIndex = 2;
-end
+roleInfo = helperResolveChannelRoles(sessionData, collectionMetadataInfo, ...
+    resolvedOptions);
 
 if roleInfo.ReferenceLabel ~= resolvedOptions.ExpectedReferenceLabel || ...
         roleInfo.SurveillanceLabel ~= ...

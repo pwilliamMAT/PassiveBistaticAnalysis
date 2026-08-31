@@ -9,6 +9,7 @@ The repo now contains a working single-session baseline review flow for `G1 Inge
 - New users should open [runPassiveBistaticPiplineLiveScript.m](runPassiveBistaticPiplineLiveScript.m) in the MATLAB Live Editor first.
 - That Live Script is the main single-session walkthrough for the current baseline dataset `20260622T102123`.
 - It explains the active question at each implemented gate, runs the current code path, renders inline tables plus the visible G2 and G3 figures, keeps the whole-gate `G3` row as a non-final placeholder, and now follows it with a standalone-runner `G3 Sync Analysis Core` section before the later placeholder gates.
+- For the bounded SyntheticDataGeneration interoperability path, open [runSyntheticHDTVG1ThroughG5LiveScript.m](runSyntheticHDTVG1ThroughG5LiveScript.m). It validates the packaged generator contract, analyzes part 1 through G1-G5 with explicit CH1-surveillance/CH2-reference roles, skips G4 full-rate and sensitivity audits, and saves one compact result without raw IQ.
 - If you want the clean artifact-only technical story for reviewers, open [runPassiveBistaticPipelineStoryLiveScript.m](runPassiveBistaticPipelineStoryLiveScript.m). That Live Script reads saved gate bundles, skips incomplete artifact folders such as the newest incomplete G4 run, presents the G2-G3-G4-G4.5-G6/G8 reviewer sequence with prose-first plots and scalar summaries, exports compact story tables and figures under `artifacts/communication/PipelineStory/<datasetId>/<runTimestampZ>/`, and does not reread raw `.bb` captures.
 - If you want the hardware-change view after understanding the baseline, open [runPassiveBistaticSessionComparisonLiveScript.m](runPassiveBistaticSessionComparisonLiveScript.m). That Live Script compares saved artifacts only and does not replace the single-session gate review.
 - If you want the saved G4.5 synthetic-recovery report, open [runG45SyntheticTargetRecoveryLiveScript.m](runG45SyntheticTargetRecoveryLiveScript.m). That Live Script reads the latest complete canonical G4.5 artifact run without rerunning `.bb` analysis.
@@ -26,6 +27,7 @@ The repo now contains a working single-session baseline review flow for `G1 Inge
 ## Current Progress Snapshot
 
 - `loadIQData` is the stable ingest helper beneath the current gate runners.
+- The quick synthetic G1-G5 path was executed against `seed_demo_20260730T155438811`, part 1, from safety checkpoint `da82227`. The verified result is under `artifacts/quick/seed_demo_20260730T155438811/20260831T204938868/quickResults.mat`; generated quick artifacts remain untracked. The upstream `seed_preservation_failure` remains an explicit caveat even though packaging integrity and target placement passed.
 - `runG1Ingest` is implemented and acts as the frozen upstream contract for current G2 work.
 - `runG2Stage1AcquisitionEvidence` is implemented and manually accepted for progression on the baseline session `20260622T102123`.
 - `runG2Stage2ReceiverIntegrity` is implemented and manually reviewed for the baseline session `20260622T102123`. The saved Stage 2 RF outcome remains caveated and diagnostic, but the checklist is now approved for progression to Stage 3 review.
