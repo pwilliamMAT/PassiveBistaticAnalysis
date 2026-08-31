@@ -1,0 +1,37 @@
+{
+  "manifest_version": 1,
+  "session_id": "20260827T141524",
+  "session_folder": "20260827T141524",
+  "session_created_utc": "2026-08-27T18:17:46Z",
+  "capture_duration_s": 1,
+  "capture_repetitions": 15,
+  "capture_repetition_spacing_s": 1,
+  "radar_active_window_s": 29.0,
+  "radar_recorded_iq_seconds_s": 15.0,
+  "lead_seconds_s": 15,
+  "tail_seconds_s": 5,
+  "adsb_target_window_s": 49.0,
+  "adsb_run_seconds_s": 140.0,
+  "adsb_stop_mode": "signal_after_capture",
+  "capture_file_base": "baseline_YagiAntennaSurv",
+  "gain_spec": "28,28",
+  "pi_host": "192.168.10.131",
+  "pi_user": "pi2",
+  "remote_log_file": "/home/pi2/flightTest/ADSB_GPS/adsb_capture_20260827T141524.log",
+  "radar_epoch_utc": 1787854549.113663,
+  "sdr_defaults": {
+    "radio_name": "My USRP N320",
+    "center_frequency_hz": 599000000,
+    "sample_rate_hz": 6144000,
+    "lo_offset_hz": 0
+  },
+  "header_readback": {
+    "center_frequency_hz": 599000000,
+    "sample_rate_hz": 6144000,
+    "lo_offset_hz": 0,
+    "tune_frequency_hz": 599000000
+  },
+  "radar_files": ["radar/baseline_YagiAntennaSurv_20260827T141524_part1", "radar/baseline_YagiAntennaSurv_20260827T141524_part2", "radar/baseline_YagiAntennaSurv_20260827T141524_part3", "radar/baseline_YagiAntennaSurv_20260827T141524_part4", "radar/baseline_YagiAntennaSurv_20260827T141524_part5", "radar/baseline_YagiAntennaSurv_20260827T141524_part6", "radar/baseline_YagiAntennaSurv_20260827T141524_part7", "radar/baseline_YagiAntennaSurv_20260827T141524_part8", "radar/baseline_YagiAntennaSurv_20260827T141524_part9", "radar/baseline_YagiAntennaSurv_20260827T141524_part10", "radar/baseline_YagiAntennaSurv_20260827T141524_part11", "radar/baseline_YagiAntennaSurv_20260827T141524_part12", "radar/baseline_YagiAntennaSurv_20260827T141524_part13", "radar/baseline_YagiAntennaSurv_20260827T141524_part14", "radar/baseline_YagiAntennaSurv_20260827T141524_part15"],
+  "adsb_files": ["truth/0_20260827_141525_adsb_20260827T141524.txt.gz"],
+  "log_files": ["logs/flighttest_capture_20260827T141524_CBlQ.log", "logs/adsb_capture_20260827T141524.log"]
+}

@@ -1,0 +1,74 @@
+MTU already 9000 on eno1.
+Confirming CPU governor = performance...
+Confirming kernel socket buffers (rmem/wmem = 50MB)...
+Starting Dual-Channel Capture Setup...
+date time group (DTG) for this capture: 2026-08-27_14-06-47.710
+Session ID (use in analyzeBistaticData): 20260827T140613
+Selected Antennas: RF0:RX2 and RF1:RX2
+Planned: 1.00 s @ 6.144 MSps (2 Ch) → ~0.05 GB
+--- Capture Round 1 of 15 ---
+Collection Started...
+[INFO] [UHD] linux; GNU C++ version 12.3.0; Boost_108100; UHD_4.6.0.0-vendor
+[INFO] [MPMD] Initializing 1 device(s) in parallel with args: mgmt_addr=192.168.10.2,type=n3xx,product=n320,serial=3298CAB,name=ni-n3xx-3298CAB,fpga=HG,claimed=False,clock_source=internal,time_source=internal,addr=192.168.10.2,master_clock_rate=245760000
+[INFO] [MPM.PeriphManager] init() called with device args `clock_source=internal,fpga=HG,master_clock_rate=245760000,mgmt_addr=192.168.10.2,name=ni-n3xx-3298CAB,product=n320,time_source=internal'.
+[WARNING] [RFNOC::BLOCK_FACTORY] Could not find block with Noc-ID 0xdafa7703, 0xffff
+[INFO] [0/Block#0] Setting default MTU forward policy.
+[WARNING] [RFNOC::BLOCK_FACTORY] Could not find block with Noc-ID 0xdafa7703, 0xffff
+[INFO] [0/Block#1] Setting default MTU forward policy.
+[WARNING] [RFNOC::BLOCK_FACTORY] Could not find block with Noc-ID 0xd937c02f, 0xffff
+[INFO] [0/Block#2] Setting default MTU forward policy.
+[WARNING] [0/Replay#0] Payload size 1484 is not compatible! Coercing to 1480
+[WARNING] [0/Replay#0] Payload size 1484 is not compatible! Coercing to 1480
+[INFO] [MPM.Rhodium-0] init() called with args `clock_source=internal,fpga=HG,master_clock_rate=245760000,mgmt_addr=192.168.10.2,name=ni-n3xx-3298CAB,product=n320,time_source=internal'
+[INFO] [MPM.Rhodium-1] init() called with args `clock_source=internal,fpga=HG,master_clock_rate=245760000,mgmt_addr=192.168.10.2,name=ni-n3xx-3298CAB,product=n320,time_source=internal'
+--- Capture Round 2 of 15 ---
+Collection Started...
+--- Capture Round 3 of 15 ---
+Collection Started...
+--- Capture Round 4 of 15 ---
+Collection Started...
+--- Capture Round 5 of 15 ---
+Collection Started...
+--- Capture Round 6 of 15 ---
+Collection Started...
+--- Capture Round 7 of 15 ---
+Collection Started...
+--- Capture Round 8 of 15 ---
+Collection Started...
+--- Capture Round 9 of 15 ---
+Collection Started...
+--- Capture Round 10 of 15 ---
+Collection Started...
+--- Capture Round 11 of 15 ---
+Collection Started...
+--- Capture Round 12 of 15 ---
+Collection Started...
+--- Capture Round 13 of 15 ---
+Collection Started...
+--- Capture Round 14 of 15 ---
+Collection Started...
+--- Capture Round 15 of 15 ---
+Collection Started...
+Done: baseline_YagiAntennaSurv
+CAPTURE_SESSION_ID=20260827T140613
+CAPTURE_RECORDING_UTC=1787854009.363383
+CAPTURE_HEADER_CENTER_FREQUENCY_HZ=599000000
+CAPTURE_HEADER_LO_OFFSET_HZ=0
+CAPTURE_HEADER_TUNE_FREQUENCY_HZ=599000000
+CAPTURE_HEADER_SAMPLE_RATE_HZ=6144000
+CAPTURE_FILE_1=/home/pat/Documents/flightTest/TestSetupTesting/baseline_YagiAntennaSurv_20260827T140613_part1
+CAPTURE_FILE_2=/home/pat/Documents/flightTest/TestSetupTesting/baseline_YagiAntennaSurv_20260827T140613_part2
+CAPTURE_FILE_3=/home/pat/Documents/flightTest/TestSetupTesting/baseline_YagiAntennaSurv_20260827T140613_part3
+CAPTURE_FILE_4=/home/pat/Documents/flightTest/TestSetupTesting/baseline_YagiAntennaSurv_20260827T140613_part4
+CAPTURE_FILE_5=/home/pat/Documents/flightTest/TestSetupTesting/baseline_YagiAntennaSurv_20260827T140613_part5
+CAPTURE_FILE_6=/home/pat/Documents/flightTest/TestSetupTesting/baseline_YagiAntennaSurv_20260827T140613_part6
+CAPTURE_FILE_7=/home/pat/Documents/flightTest/TestSetupTesting/baseline_YagiAntennaSurv_20260827T140613_part7
+CAPTURE_FILE_8=/home/pat/Documents/flightTest/TestSetupTesting/baseline_YagiAntennaSurv_20260827T140613_part8
+CAPTURE_FILE_9=/home/pat/Documents/flightTest/TestSetupTesting/baseline_YagiAntennaSurv_20260827T140613_part9
+CAPTURE_FILE_10=/home/pat/Documents/flightTest/TestSetupTesting/baseline_YagiAntennaSurv_20260827T140613_part10
+CAPTURE_FILE_11=/home/pat/Documents/flightTest/TestSetupTesting/baseline_YagiAntennaSurv_20260827T140613_part11
+CAPTURE_FILE_12=/home/pat/Documents/flightTest/TestSetupTesting/baseline_YagiAntennaSurv_20260827T140613_part12
+CAPTURE_FILE_13=/home/pat/Documents/flightTest/TestSetupTesting/baseline_YagiAntennaSurv_20260827T140613_part13
+CAPTURE_FILE_14=/home/pat/Documents/flightTest/TestSetupTesting/baseline_YagiAntennaSurv_20260827T140613_part14
+CAPTURE_FILE_15=/home/pat/Documents/flightTest/TestSetupTesting/baseline_YagiAntennaSurv_20260827T140613_part15
+Header readback: center=599.000 MHz, lo=0.000 MHz, tune=599.000 MHz, sampleRate=6.144 MSps

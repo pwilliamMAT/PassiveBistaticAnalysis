@@ -1,0 +1,18 @@
+server:127.0.0.1  port:30003  host:localhost
+ base filename:adsb_20260827T135456.txt  lpf:200000  min_free_disk:500 MB
+ rsync dest : (disabled)
+ rclone dest: (disabled)
+
+starting: 0_20260827_135458_adsb_20260827T135456.txt
+.........1.........2.........3
+.........4.........5.........6
+.........7.........8.........9
+.........0.........1.........2
+.........3.........4
+Shutdown requested: signal 2
+
+Capture summary:
+  shutdown reason : signal 2
+  lines captured  : 14075
+  files preserved : 1
+  final artifact  : 0_20260827_135458_adsb_20260827T135456.txt.gz

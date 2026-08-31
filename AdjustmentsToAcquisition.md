@@ -185,6 +185,19 @@ This matrix is for the next field session and assumes off-the-shelf hardware onl
 - Do not reduce surveillance performance just to force a Stage 2 power-ordering pass unless receiver protection or shared dynamic-range limits require it.
 - Avoid consumer amplified TV antennas as the primary reference-path recommendation until the passive antenna element and amplifier state are separately identified and controlled.
 
+## G4/G5 Feedback From Current Dataset
+
+The later map and mitigation gates strengthen the acquisition interpretation rather than replacing the G2 findings:
+
+- `G3_Sync_Core` is `ready`, with stable lag, small residual frequency, and usable CPI coherence. Timing and frequency correction are therefore not the main blocker in the current dataset.
+- `G4_Passive_Baseline_Map` executed successfully and kept implementation confidence `ready`, but its overall label is `blocked` because scene observability is blocked and the bounded full-rate audit disagrees with the reduced-rate maps.
+- All `225` reduced-rate G4 maps were labeled `scene_limited_direct_path_dominated`. The map product is repeatable and direct-path-localized, but it is not yet scene-useful beyond the dominant reference/direct-path structure.
+- `G5_Mitigation` remains `blocked_by_g4`, so mitigation evidence is diagnostic only and must not be treated as a formal gate pass.
+- The G5 diagnostic sweep found that `official_current / conservative_lms` suppresses direct-path/reference-correlated content by about `4.2 dB`, but the best causal label remains `visual_only_improvement`.
+- The diagnostic sweep has `0` default-gate scene-reveal passes and only permissive-probe passes, so the current evidence is sensitive to masks and thresholds rather than a robust scene-recovery result.
+
+Acquisition implication: the processing chain is increasingly exonerated. The next session should prioritize stronger clean reference capture, better reference/surveillance isolation, more surveillance headroom, and controlled captures that prove whether off-origin scene energy is actually present.
+
 ### Candidate Reference Antenna Classes
 
 | Candidate class | Best use case | Why it is attractive | Main caveats | Recommendation |

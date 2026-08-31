@@ -1,0 +1,58 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>Pluto Azimuth Environmental Scan</title>
+<style>body{font-family:Arial,sans-serif;margin:2rem;line-height:1.4}img{max-width:100%;border:1px solid #ccc;margin:1rem 0}table{border-collapse:collapse}td,th{border:1px solid #bbb;padding:0.25rem 0.45rem}code{background:#eee;padding:0.1rem 0.25rem}</style>
+</head><body>
+<h1>Pluto Azimuth Environmental Scan</h1>
+<p><strong>Scan ID:</strong> az_scan_08steps_04secs_62181629<br>
+<strong>Created UTC:</strong> 2026-08-06T20:30:00Z<br>
+<strong>Directional channel:</strong> SURV</p>
+<h2>Plain-language interpretation</h2>
+<p>The ambient spectra show what the two receive channels saw while the Pluto calibration burst window was excluded. The calibration pattern scores only the short 12-tone no-DC Pluto burst. If the directional antenna is behaving like a directional sensor, its ambient and calibration curves should change more with bearing than the reference channel.</p>
+<h2>Summary</h2>
+<ul>
+<li>Directional ambient span: 9.30 dB</li>
+<li>Reference ambient span: 0.71 dB</li>
+<li>Directional calibration span: 0.37 dB</li>
+<li>Reference calibration span: 0.46 dB</li>
+<li>Strongest ambient bearing: 135.0 deg true</li>
+<li>Strongest calibration bearing: 270.0 deg true</li>
+</ul>
+<h2>Plots</h2>
+<h3>Ambient RF power versus azimuth</h3>
+<img src="environment_power_polar.png" alt="Ambient RF power versus azimuth">
+<h3>Pluto calibration comb response versus azimuth</h3>
+<img src="calibration_pattern_polar.png" alt="Pluto calibration comb response versus azimuth">
+<h3>Per-tone Pluto comb calibration margin heatmap</h3>
+<img src="calibration_tone_margin_heatmap.png" alt="Per-tone Pluto comb calibration margin heatmap">
+<h3>Per-tone Pluto comb shape by bearing</h3>
+<img src="calibration_tone_margin_by_frequency.png" alt="Per-tone Pluto comb shape by bearing">
+<h3>Directional-channel ambient PSD heatmap</h3>
+<img src="directional_psd_heatmap.png" alt="Directional-channel ambient PSD heatmap">
+<h3>Reference-channel ambient PSD heatmap</h3>
+<img src="reference_psd_heatmap.png" alt="Reference-channel ambient PSD heatmap">
+<h3>Directional/reference ratio metrics</h3>
+<img src="channel_ratio_and_metrics.png" alt="Directional/reference ratio metrics">
+<h2>Per-bearing table</h2>
+<p>CSV version: <a href="azimuth_summary.csv">azimuth_summary.csv</a></p>
+<table><thead><tr><th>StepIndex</th><th>Bearing_deg</th><th>SessionID</th><th>Status</th><th>CaptureFile</th><th>DirectionalAmbientPower_dB</th><th>ReferenceAmbientPower_dB</th><th>DirectionalMinusReferencePower_dB</th><th>DirectionalMedianPSD_dBPerHz</th><th>ReferenceMedianPSD_dBPerHz</th><th>DirectionalPeakPSD_dBPerHz</th><th>DirectionalPeakFrequency_Hz</th><th>ReferencePeakPSD_dBPerHz</th><th>ReferencePeakFrequency_Hz</th><th>DirectionalCalibrationIntegratedMargin_dB</th><th>ReferenceCalibrationIntegratedMargin_dB</th></tr></thead><tbody>
+<tr><td>1</td><td>0</td><td>az_scan_08steps_04secs_62181629_step01_az000</td><td>WARN</td><td>/home/pat/Documents/flightTest-pluto/captures/plutoAzimuthEnvironmentScans/az_scan_08steps_04secs_62181629/bb_captures_exclude_from_rsync/az_scan_08steps_04secs_62181629_step01_az000__BB_CAPTURE_DO_NOT_RSYNC_az_scan_08steps_04secs_62181629_step01_az000_part1</td><td>81.1104</td><td>75.6862</td><td>5.42416</td><td>12.1832</td><td>6.50448</td><td>34.2515</td><td>-2.69043e+06</td><td>33.1149</td><td>0</td><td>10.6984</td><td>10.5798</td></tr>
+<tr><td>2</td><td>45</td><td>az_scan_08steps_04secs_62181629_step02_az045</td><td>WARN</td><td>/home/pat/Documents/flightTest-pluto/captures/plutoAzimuthEnvironmentScans/az_scan_08steps_04secs_62181629/bb_captures_exclude_from_rsync/az_scan_08steps_04secs_62181629_step02_az045__BB_CAPTURE_DO_NOT_RSYNC_az_scan_08steps_04secs_62181629_step02_az045_part1</td><td>78.7766</td><td>75.6471</td><td>3.12954</td><td>10.0952</td><td>6.71774</td><td>36.4669</td><td>-2.69043e+06</td><td>30.556</td><td>0</td><td>10.8017</td><td>11.0386</td></tr>
+<tr><td>3</td><td>90</td><td>az_scan_08steps_04secs_62181629_step03_az090</td><td>WARN</td><td>/home/pat/Documents/flightTest-pluto/captures/plutoAzimuthEnvironmentScans/az_scan_08steps_04secs_62181629/bb_captures_exclude_from_rsync/az_scan_08steps_04secs_62181629_step03_az090__BB_CAPTURE_DO_NOT_RSYNC_az_scan_08steps_04secs_62181629_step03_az090_part1</td><td>81.9634</td><td>76.1263</td><td>5.83712</td><td>13.912</td><td>7.19549</td><td>38.2449</td><td>-2.69043e+06</td><td>31.2762</td><td>0</td><td>10.621</td><td>10.6144</td></tr>
+<tr><td>4</td><td>135</td><td>az_scan_08steps_04secs_62181629_step04_az135</td><td>WARN</td><td>/home/pat/Documents/flightTest-pluto/captures/plutoAzimuthEnvironmentScans/az_scan_08steps_04secs_62181629/bb_captures_exclude_from_rsync/az_scan_08steps_04secs_62181629_step04_az135__BB_CAPTURE_DO_NOT_RSYNC_az_scan_08steps_04secs_62181629_step04_az135_part1</td><td>82.7057</td><td>75.8327</td><td>6.87307</td><td>14.5558</td><td>6.75947</td><td>39.2252</td><td>-2.69043e+06</td><td>33.3137</td><td>0</td><td>10.9001</td><td>10.9015</td></tr>
+<tr><td>5</td><td>180</td><td>az_scan_08steps_04secs_62181629_step05_az180</td><td>WARN</td><td>/home/pat/Documents/flightTest-pluto/captures/plutoAzimuthEnvironmentScans/az_scan_08steps_04secs_62181629/bb_captures_exclude_from_rsync/az_scan_08steps_04secs_62181629_step05_az180__BB_CAPTURE_DO_NOT_RSYNC_az_scan_08steps_04secs_62181629_step05_az180_part1</td><td>77.2582</td><td>75.4135</td><td>1.84467</td><td>8.74536</td><td>6.40243</td><td>33.6485</td><td>-2.69043e+06</td><td>28.963</td><td>0</td><td>10.8604</td><td>10.979</td></tr>
+<tr><td>6</td><td>225</td><td>az_scan_08steps_04secs_62181629_step06_az225</td><td>WARN</td><td>/home/pat/Documents/flightTest-pluto/captures/plutoAzimuthEnvironmentScans/az_scan_08steps_04secs_62181629/bb_captures_exclude_from_rsync/az_scan_08steps_04secs_62181629_step06_az225__BB_CAPTURE_DO_NOT_RSYNC_az_scan_08steps_04secs_62181629_step06_az225_part1</td><td>73.4083</td><td>75.5631</td><td>-2.15471</td><td>4.43597</td><td>6.10254</td><td>29.0778</td><td>-2.69043e+06</td><td>33.2427</td><td>0</td><td>10.9461</td><td>10.8542</td></tr>
+<tr><td>7</td><td>270</td><td>az_scan_08steps_04secs_62181629_step07_az270</td><td>WARN</td><td>/home/pat/Documents/flightTest-pluto/captures/plutoAzimuthEnvironmentScans/az_scan_08steps_04secs_62181629/bb_captures_exclude_from_rsync/az_scan_08steps_04secs_62181629_step07_az270__BB_CAPTURE_DO_NOT_RSYNC_az_scan_08steps_04secs_62181629_step07_az270_part1</td><td>79.6756</td><td>75.629</td><td>4.04657</td><td>9.91548</td><td>6.34715</td><td>37.0118</td><td>-2.69043e+06</td><td>33.4263</td><td>0</td><td>10.9931</td><td>10.9773</td></tr>
+<tr><td>8</td><td>315</td><td>az_scan_08steps_04secs_62181629_step08_az315</td><td>WARN</td><td>/home/pat/Documents/flightTest-pluto/captures/plutoAzimuthEnvironmentScans/az_scan_08steps_04secs_62181629/bb_captures_exclude_from_rsync/az_scan_08steps_04secs_62181629_step08_az315__BB_CAPTURE_DO_NOT_RSYNC_az_scan_08steps_04secs_62181629_step08_az315_part1</td><td>77.3815</td><td>75.7769</td><td>1.60456</td><td>8.30561</td><td>6.56735</td><td>32.3581</td><td>-2.69043e+06</td><td>32.0237</td><td>0</td><td>10.7552</td><td>10.6786</td></tr>
+</tbody></table>
+<h2>Per-tone calibration table</h2>
+<p>CSV version: <a href="calibration_tone_summary.csv">calibration_tone_summary.csv</a>. This table is the easiest way to inspect whether one tone or one side of the comb behaves differently across azimuth.</p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="summary.txt">summary.txt</a></li>
+<li><a href="scan_result.mat">scan_result.mat</a></li>
+<li><a href="azimuth_summary.csv">azimuth_summary.csv</a></li>
+<li><a href="calibration_tone_summary.csv">calibration_tone_summary.csv</a></li>
+<li><a href="rsync_exclude_large_captures.txt">rsync_exclude_large_captures.txt</a></li>
+</ul>
+</body></html>

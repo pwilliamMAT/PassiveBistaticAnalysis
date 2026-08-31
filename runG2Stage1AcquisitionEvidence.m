@@ -16,6 +16,8 @@ arguments
     options (1,1) struct = struct()
 end
 
+totalTimer = tic;
+stepTimer = tic;
 stageArtifactId = "G2_RF_Health_Stage1_AcquisitionEvidence";
 repoRoot = helperResolveRepoRoot(repoRoot);
 datasetId = string(datasetId);
@@ -25,18 +27,27 @@ runTimestampZ = string(datetime("now", "TimeZone", "UTC", ...
 bundleRoot = fullfile(repoRoot, "artifacts", datasetId, stageArtifactId, ...
     runTimestampZ);
 figureRoot = fullfile(bundleRoot, "figures");
-
+timingRows = helperMakeTimingSummaryRow(stageArtifactId, ...
+    "resolve_inputs", 0.0, runnerOptions.ExecutionMode);
+timingRows(1) = [];
+timingRows(end + 1) = helperMakeTimingSummaryRow(stageArtifactId, ...
+    "resolve_inputs", toc(stepTimer), runnerOptions.ExecutionMode, ...
+    NaN, NaN, NaN, NaN, NaN, "");
 fprintf("Running G2 Stage 1 Acquisition Evidence for dataset %s\n", ...
     datasetId);
 fprintf("Repository root:\t%s\n", repoRoot);
+fprintf("Execution mode:\t%s\n", runnerOptions.ExecutionMode);
 
 try
     localEnsureFolder(bundleRoot);
     localEnsureFolder(figureRoot);
 
+    stepTimer = tic;
     loadOptions = struct();
     loadOptions.IncludeSamples = false;
     sessionData = loadIQData(datasetId, repoRoot, loadOptions);
+    inputRepetitionCount = double(numel(sessionData.RadarScans));
+    inputSampleCount = double(sum([sessionData.RadarScans.NumSamples]));
     captureLogPath = localResolveCaptureLogPath(sessionData);
     collectionMetadataPath = fullfile(sessionData.DatasetRoot, ...
         "collection_metadata.json");
@@ -49,6 +60,13 @@ try
 
     collectionMetadataInfo = helperReadCollectionMetadata( ...
         collectionMetadataPath, datasetId);
+    timingRows(end + 1) = helperMakeTimingSummaryRow(stageArtifactId, ...
+        "load_session_metadata", toc(stepTimer), ...
+        runnerOptions.ExecutionMode, inputSampleCount, ...
+        inputRepetitionCount, NaN, NaN, NaN, ...
+        "loadIQData IncludeSamples=false plus capture-log and metadata parse.");
+
+    stepTimer = tic;
     analysis = helperAnalyzeG2AcquisitionEvidence(sessionData, ...
         captureLogInfo, collectionMetadataInfo, analysisOptions);
     configSnapshot = localBuildConfigSnapshot(datasetId, repoRoot, ...
@@ -60,6 +78,11 @@ try
         captureLogInfo, collectionMetadataInfo, analysis);
     collectionValidityLines = localBuildCollectionValidityNoteLines( ...
         captureLogInfo, collectionMetadataInfo, analysis);
+    timingRows(end + 1) = helperMakeTimingSummaryRow(stageArtifactId, ...
+        "run_acquisition_evidence_helper", toc(stepTimer), ...
+        runnerOptions.ExecutionMode, inputSampleCount, ...
+        inputRepetitionCount, NaN, NaN, NaN, ...
+        "Analysis helper plus bundle summary preparation.");
 
     summaryPath = fullfile(bundleRoot, "summary.md");
     collectionValidityNotePath = fullfile(bundleRoot, ...
@@ -76,6 +99,7 @@ try
     consistencyFigurePath = fullfile(figureRoot, ...
         "figure_02_channel_consistency.png");
 
+    stepTimer = tic;
     try
         writetable(analysis.MetadataAuditTable, metadataAuditPath);
         writetable(analysis.ReceiverStateTable, receiverStatePath);
@@ -86,13 +110,24 @@ try
             "Failed to write a Stage 1 table artifact: %s", ...
             writeTableException.message);
     end
+    timingRows(end + 1) = helperMakeTimingSummaryRow(stageArtifactId, ...
+        "write_tables", toc(stepTimer), runnerOptions.ExecutionMode, ...
+        inputSampleCount, inputRepetitionCount, 3, 0, NaN, ...
+        "metadata, receiver state, and channel role evidence CSVs.");
 
+    stepTimer = tic;
     localWriteTextFile(summaryPath, summaryLines);
     localWriteTextFile(collectionValidityNotePath, ...
         collectionValidityLines);
     localWriteJsonFile(configSnapshotPath, configSnapshot);
     localWriteJsonFile(metricsJsonPath, analysis.Metrics);
+    timingRows(end + 1) = helperMakeTimingSummaryRow(stageArtifactId, ...
+        "write_text_artifacts", toc(stepTimer), ...
+        runnerOptions.ExecutionMode, inputSampleCount, ...
+        inputRepetitionCount, 4, 0, NaN, ...
+        "Summary, collection note, config JSON, and metrics JSON.");
 
+    stepTimer = tic;
     try
         save(metricsMatPath, "analysis");
     catch saveException
@@ -100,7 +135,12 @@ try
             "Failed to write Stage 1 metrics.mat: %s", ...
             saveException.message);
     end
+    timingRows(end + 1) = helperMakeTimingSummaryRow(stageArtifactId, ...
+        "write_metrics_mat", toc(stepTimer), runnerOptions.ExecutionMode, ...
+        inputSampleCount, inputRepetitionCount, 1, 0, NaN, ...
+        "metrics.mat");
 
+    stepTimer = tic;
     try
         comparisonSnapshotPath = helperWriteComparisonSnapshot( ...
             string(bundleRoot), comparisonSnapshot);
@@ -109,11 +149,27 @@ try
             "Failed to write Stage 1 comparison snapshot: %s", ...
             saveException.message);
     end
+    timingRows(end + 1) = helperMakeTimingSummaryRow(stageArtifactId, ...
+        "write_comparison_snapshot", toc(stepTimer), ...
+        runnerOptions.ExecutionMode, inputSampleCount, ...
+        inputRepetitionCount, 1, 0, NaN, "comparison_snapshot.mat");
 
+    stepTimer = tic;
     localRenderAveragePsdFigure(analysis, averagePsdFigurePath, ...
         runnerOptions.ShowFigures);
     localRenderConsistencyFigure(analysis, consistencyFigurePath, ...
         runnerOptions.ShowFigures);
+    timingRows(end + 1) = helperMakeTimingSummaryRow(stageArtifactId, ...
+        "render_figures", toc(stepTimer), runnerOptions.ExecutionMode, ...
+        inputSampleCount, inputRepetitionCount, 2, 2, NaN, ...
+        "Average PSD and channel consistency figures.");
+
+    [timingSummaryTable, performanceSummary] = ...
+        helperFinalizePerformanceInstrumentation(stageArtifactId, ...
+        datasetId, string(bundleRoot), runTimestampZ, ...
+        runnerOptions.ExecutionMode, runnerOptions.ShowFigures, ...
+        timingRows, totalTimer, inputSampleCount, ...
+        inputRepetitionCount, string(metricsMatPath));
 
     results = struct();
     results.DatasetId = datasetId;
@@ -136,6 +192,8 @@ try
     results.FigurePaths = [string(averagePsdFigurePath); ...
         string(consistencyFigurePath)];
     results.ComparisonSnapshotPath = string(comparisonSnapshotPath);
+    results.TimingSummaryTable = timingSummaryTable;
+    results.PerformanceSummary = performanceSummary;
 
     fprintf("Collection-validity verdict:\t%s\n", ...
         results.CollectionValidityVerdict);
@@ -153,14 +211,21 @@ function [analysisOptions, runnerOptions] = localResolveRunnerOptions(options)
 
 analysisOptions = options;
 runnerOptions = struct();
+runnerOptions.ExecutionMode = helperResolveExecutionMode(options);
 runnerOptions.ShowFigures = usejava("desktop");
 
-if ~isfield(options, "ShowFigures")
-    return
+if runnerOptions.ExecutionMode == "analysis_only"
+    runnerOptions.ShowFigures = false;
 end
 
-runnerOptions.ShowFigures = logical(options.ShowFigures);
-analysisOptions = rmfield(analysisOptions, "ShowFigures");
+if isfield(options, "ShowFigures")
+    runnerOptions.ShowFigures = logical(options.ShowFigures);
+    analysisOptions = rmfield(analysisOptions, "ShowFigures");
+end
+
+if isfield(analysisOptions, "ExecutionMode")
+    analysisOptions = rmfield(analysisOptions, "ExecutionMode");
+end
 
 end
 
@@ -236,6 +301,7 @@ configSnapshot.collection_metadata_path = ...
 configSnapshot.collection_metadata_present = ...
     collectionMetadataInfo.MetadataPresent;
 configSnapshot.show_figures = runnerOptions.ShowFigures;
+configSnapshot.execution_mode = runnerOptions.ExecutionMode;
 configSnapshot.sample_rate_hz = analysis.Options.SampleRateHz;
 configSnapshot.welch_length = analysis.Options.WelchLength;
 configSnapshot.welch_overlap = analysis.Options.WelchOverlap;

@@ -1,0 +1,37 @@
+{
+  "manifest_version": 1,
+  "session_id": "20260827T135456",
+  "session_folder": "20260827T135456",
+  "session_created_utc": "2026-08-27T17:57:36Z",
+  "capture_duration_s": 1,
+  "capture_repetitions": 15,
+  "capture_repetition_spacing_s": 1,
+  "radar_active_window_s": 29.0,
+  "radar_recorded_iq_seconds_s": 15.0,
+  "lead_seconds_s": 15,
+  "tail_seconds_s": 5,
+  "adsb_target_window_s": 49.0,
+  "adsb_run_seconds_s": 158.2,
+  "adsb_stop_mode": "signal_after_capture",
+  "capture_file_base": "baseline_dipoleAntennaSurv",
+  "gain_spec": "28,28",
+  "pi_host": "192.168.10.131",
+  "pi_user": "pi2",
+  "remote_log_file": "/home/pi2/flightTest/ADSB_GPS/adsb_capture_20260827T135456.log",
+  "radar_epoch_utc": 1787853337.112104,
+  "sdr_defaults": {
+    "radio_name": "My USRP N320",
+    "center_frequency_hz": 599000000,
+    "sample_rate_hz": 6144000,
+    "lo_offset_hz": 0
+  },
+  "header_readback": {
+    "center_frequency_hz": 599000000,
+    "sample_rate_hz": 6144000,
+    "lo_offset_hz": 0,
+    "tune_frequency_hz": 599000000
+  },
+  "radar_files": ["radar/baseline_dipoleAntennaSurv_20260827T135456_part1", "radar/baseline_dipoleAntennaSurv_20260827T135456_part2", "radar/baseline_dipoleAntennaSurv_20260827T135456_part3", "radar/baseline_dipoleAntennaSurv_20260827T135456_part4", "radar/baseline_dipoleAntennaSurv_20260827T135456_part5", "radar/baseline_dipoleAntennaSurv_20260827T135456_part6", "radar/baseline_dipoleAntennaSurv_20260827T135456_part7", "radar/baseline_dipoleAntennaSurv_20260827T135456_part8", "radar/baseline_dipoleAntennaSurv_20260827T135456_part9", "radar/baseline_dipoleAntennaSurv_20260827T135456_part10", "radar/baseline_dipoleAntennaSurv_20260827T135456_part11", "radar/baseline_dipoleAntennaSurv_20260827T135456_part12", "radar/baseline_dipoleAntennaSurv_20260827T135456_part13", "radar/baseline_dipoleAntennaSurv_20260827T135456_part14", "radar/baseline_dipoleAntennaSurv_20260827T135456_part15"],
+  "adsb_files": ["truth/0_20260827_135458_adsb_20260827T135456.txt.gz"],
+  "log_files": ["logs/flighttest_capture_20260827T135456_eu2J.log", "logs/adsb_capture_20260827T135456.log"]
+}

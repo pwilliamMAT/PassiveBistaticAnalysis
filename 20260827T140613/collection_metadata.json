@@ -1,0 +1,40 @@
+{
+  "session_id": "20260827T140613",
+  "metadata_source": "user_task_description_and_acquisition_source_audit",
+  "channel_assignments": {
+    "reference_channel": {
+      "channel_label": "RF1:RX2",
+      "n320_section": "RF1",
+      "port": "RX2",
+      "role": "reference",
+      "antenna_name": "",
+      "antenna_type": "",
+      "notes": "Reference-channel identity was not supplied with the archive."
+    },
+    "surveillance_channel": {
+      "channel_label": "RF0:RX2",
+      "n320_section": "RF0",
+      "port": "RX2",
+      "role": "surveillance",
+      "antenna_name": "Yagi surveillance antenna",
+      "antenna_type": "Yagi",
+      "notes": "The user identified this session as a Yagi surveillance session."
+    }
+  },
+  "site_context": {
+    "site_region": "",
+    "surveillance_boresight_description": "",
+    "expected_air_traffic_note": "",
+    "illuminator_note": "",
+    "receiver_location_note": "",
+    "obstructions_or_clutter_note": ""
+  },
+  "acquisition_controls": {
+    "gain_mapping_note": "Manifest gain_spec 28,28 maps in logger order [SurveillanceGain, ReferenceGain] to RF0:RX2 = 28 dB and RF1:RX2 = 28 dB.",
+    "gain_mode_note": "Manual gain. The acquisition logger assigns the numeric gain vector directly to basebandReceiver.RadioGain.",
+    "lock_status_note": "",
+    "overrun_note": "",
+    "channel_mapping_verification_note": "",
+    "operator_notes": "Channel order is established by flightTest/TestSetupTesting/log_iq_n320_2antennas.m: RF0:RX2 is stored as surveillance column 1 and RF1:RX2 as reference column 2. No separate mapping-verification capture was included."
+  }
+}

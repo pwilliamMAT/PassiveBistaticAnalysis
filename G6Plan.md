@@ -8,6 +8,11 @@ G6 freezes the detector input product definition after upstream map and mitigati
 
 G6 must not accept a single `RecommendedBaselineCpiLabel` without checking G4 caveats, scene labels, raw-rate audit status, axis plausibility, repeatability, and G5 mitigation status.
 
+## Current Downstream Diagnostic Status
+
+Current implementation is blocked/deferred freeze scaffolding only. On dataset `20260622T102123`, G6 must refuse normal detector-product freeze because the latest complete G4 evidence is `blocked` with `dataset_scene_limited_with_raw_rate_audit_disagreement`, and G5 remains diagnostic-only with `blocked_by_g4` formal posture.
+
+The executable scaffold is `runG6CpiIntegrationFreeze`. It consumes the latest complete G4/G5/G5-diagnostic bundles, writes a G6 evidence bundle, records `FreezeStatus = freeze_deferred`, and sets `DetectorProductFreezeEnabled = false`. It does not tune CFAR, perform truth alignment, change G4/G5 semantics, or promote the current dataset beyond diagnostic negative-control evidence.
 ## Native Function Discovery
 
 | Proposed Workflow | Native MATLAB Documentation Example Analogue | Updates needed to fit current goal |
@@ -145,10 +150,23 @@ G6 must follow `docs/testing/EvidenceBundleSpec.md`:
 - `config_snapshot.json`
 - `metrics.json`
 - `metrics.mat`
+- `timing_summary.csv`
+- `performance_summary.json`
 - `decision.txt`
 - `failure_cause.txt` when the decision is not `pass`
 - `next_branch.txt`
 - `figures/`
+
+## Runner Performance Instrumentation Requirement
+
+The future G6 runner must implement the same timing/performance contract used by the G1-G3 runners.
+
+- Return `results.TimingSummaryTable` and `results.PerformanceSummary`.
+- Write `timing_summary.csv` and `performance_summary.json` into each successful evidence bundle.
+- Append `timingSummaryTable` and `performanceSummary` to `metrics.mat`.
+- Use the common timing table schema: `StageId`, `StepName`, `Elapsed_s`, `ExecutionMode`, `InputSampleCount`, `InputRepetitionCount`, `OutputArtifactCount`, `OutputFigureCount`, `OutputBytes`, and `Notes`.
+- Default `ExecutionMode` is `"review"`; accept and report `"analysis_only"` and `"profile"` where runner options exist.
+- Do not add arbitrary runtime pass/fail thresholds. Timing is observability evidence unless a later requirements document defines explicit performance gates.
 
 Required G6 figures:
 

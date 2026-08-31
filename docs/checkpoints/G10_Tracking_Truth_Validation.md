@@ -12,6 +12,17 @@ Evaluate tracker output against truth after a fixed measurement contract has bee
 - When this gate is implemented, its executable logic should be added to the pipeline script only after G9 authorizes tracking work and the measurement contract is fixed.
 - Until then, the pipeline should leave G10 as a placeholder and stop after the last implemented gate.
 
+## Runner Performance Instrumentation Requirement
+
+The future G10 runner must implement the same timing/performance contract used by the G1-G3 runners.
+
+- Return `results.TimingSummaryTable` and `results.PerformanceSummary`.
+- Write `timing_summary.csv` and `performance_summary.json` into each successful evidence bundle.
+- Append `timingSummaryTable` and `performanceSummary` to `metrics.mat` when a metrics MAT artifact is written.
+- Use the common timing table schema: `StageId`, `StepName`, `Elapsed_s`, `ExecutionMode`, `InputSampleCount`, `InputRepetitionCount`, `OutputArtifactCount`, `OutputFigureCount`, `OutputBytes`, and `Notes`.
+- Default `ExecutionMode` is `"review"`; accept and report `"analysis_only"` and `"profile"` where runner options exist.
+- Do not add arbitrary runtime pass/fail thresholds. Timing is observability evidence unless a later requirements document defines explicit performance gates.
+
 ## Requirement IDs in Scope
 
 - `TRK-003` batch track and truth metrics
@@ -40,6 +51,7 @@ Tracker smoothness is not an acceptance metric. Acceptance depends on truth-awar
 - Batch track-to-truth metrics summary
 - Assignment-history summary
 - Continuity, coast, and initiation-delay summary
+- `timing_summary.csv` and `performance_summary.json`
 - Milestone decision summary stating `track-level success`, `truth-correlated success`, or reopen decision
 
 ## Expert Note

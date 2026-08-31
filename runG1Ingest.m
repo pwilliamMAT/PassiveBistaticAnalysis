@@ -1,4 +1,4 @@
-function results = runG1Ingest(datasetId, repoRoot)
+function results = runG1Ingest(datasetId, repoRoot, options)
 %RUNG1INGEST Execute the G1 ingest gate for a passive bistatic session.
 %
 %   RESULTS = RUNG1INGEST() runs G1 on the reference dataset
@@ -6,31 +6,43 @@ function results = runG1Ingest(datasetId, repoRoot)
 %   artifacts/<datasetId>/G1_Ingest/<runTimestampZ>/
 %
 %   RESULTS = RUNG1INGEST(DATASETID, REPOROOT) allows the dataset ID and
-%   repository root to be overridden. This gate runner uses LOADIQDATA as
-%   its reusable session-ingest dependency.
+%   repository root to be overridden. RESULTS = RUNG1INGEST(DATASETID,
+%   REPOROOT, OPTIONS) accepts runner options such as ExecutionMode. This
+%   gate runner uses LOADIQDATA as its reusable session-ingest dependency.
 
 arguments
     datasetId (1,1) string = "20260622T102123"
     repoRoot (1,1) string = string(fileparts(mfilename("fullpath")))
+    options (1,1) struct = struct()
 end
 
+totalTimer = tic;
+stepTimer = tic;
 gateId = "G1_Ingest";
 repoRoot = helperResolveRepoRoot(repoRoot);
 datasetId = string(datasetId);
+runnerOptions = localResolveRunnerOptions(options);
 runTimestampZ = string(datetime("now", "TimeZone", "UTC", ...
     "Format", "yyyyMMdd'T'HHmmss'Z'"));
 bundleRoot = fullfile(repoRoot, "artifacts", datasetId, gateId, runTimestampZ);
 figureRoot = fullfile(bundleRoot, "figures");
 logRoot = fullfile(bundleRoot, "logs");
-
+timingRows = helperMakeTimingSummaryRow(gateId, "resolve_inputs", ...
+    0.0, runnerOptions.ExecutionMode);
+timingRows(1) = [];
+timingRows(end + 1) = helperMakeTimingSummaryRow(gateId, ...
+    "resolve_inputs", toc(stepTimer), runnerOptions.ExecutionMode, ...
+    NaN, NaN, NaN, NaN, NaN, "");
 fprintf("Running %s for dataset %s\n", gateId, datasetId);
 fprintf("Repository root:\t%s\n", repoRoot);
+fprintf("Execution mode:\t%s\n", runnerOptions.ExecutionMode);
 
 try
     localEnsureFolder(bundleRoot);
     localEnsureFolder(figureRoot);
     localEnsureFolder(logRoot);
 
+    stepTimer = tic;
     loadOptions = struct();
     loadOptions.IncludeSamples = false;
     sessionData = loadIQData(datasetId, repoRoot, loadOptions);
@@ -40,6 +52,14 @@ try
     radarTable = sessionData.RadarTable;
     seamTable = sessionData.SeamTable;
     readerContract = sessionData.NativeReaderContract;
+    inputRepetitionCount = double(numel(radarScans));
+    inputSampleCount = double(sum([radarScans.NumSamples]));
+    timingRows(end + 1) = helperMakeTimingSummaryRow(gateId, ...
+        "load_iq_data", toc(stepTimer), runnerOptions.ExecutionMode, ...
+        inputSampleCount, inputRepetitionCount, NaN, NaN, NaN, ...
+        "loadIQData IncludeSamples=false");
+
+    stepTimer = tic;
     [decision, failureCause, nextBranch, passFlags] = localDetermineDecision( ...
         manifest, manifestTable, radarScans, seamTable);
 
@@ -74,10 +94,17 @@ try
 
     configSnapshot = localBuildConfigSnapshot(manifest, datasetId, gateId, ...
         repoRoot, bundleRoot, runTimestampZ, sessionData);
+    configSnapshot.execution_mode = runnerOptions.ExecutionMode;
+    configSnapshot.show_figures = runnerOptions.ShowFigures;
     metrics = localBuildMetrics(manifest, manifestTable, radarScans, seamTable, ...
         passFlags, decision, nextBranch, readerContract);
     comparisonSnapshot = localBuildComparisonSnapshot(datasetId, gateId, ...
         runTimestampZ, bundleRoot, decision, nextBranch, passFlags, metrics);
+    timingRows(end + 1) = helperMakeTimingSummaryRow(gateId, ...
+        "build_ingest_metrics", toc(stepTimer), ...
+        runnerOptions.ExecutionMode, inputSampleCount, ...
+        inputRepetitionCount, NaN, NaN, NaN, ...
+        "Decision, pass flags, metrics, and bundle text content.");
 
     manifestCsvPath = fullfile(bundleRoot, "manifest_vs_observed.csv");
     radarScanCsvPath = fullfile(bundleRoot, "radar_metadata_scan.csv");
@@ -103,6 +130,7 @@ try
     decodeFigurePath = fullfile(figureRoot, ...
         "figure_03_decode_contract_summary.png");
 
+    stepTimer = tic;
     try
         writetable(manifestTable, manifestCsvPath);
         writetable(radarTable, radarScanCsvPath);
@@ -113,7 +141,12 @@ try
             "Failed to write a bundle table artifact: %s", ...
             writeTableException.message);
     end
+    timingRows(end + 1) = helperMakeTimingSummaryRow(gateId, ...
+        "write_tables", toc(stepTimer), runnerOptions.ExecutionMode, ...
+        inputSampleCount, inputRepetitionCount, 4, 0, NaN, ...
+        "manifest, radar scan, seam, and requirements coverage CSVs.");
 
+    stepTimer = tic;
     localWriteTextFile(summaryPath, summaryLines);
     localWriteTextFile(captureProvenancePath, captureProvenanceLines);
     localWriteTextFile(decodeContractPath, decodeContractLines);
@@ -128,7 +161,13 @@ try
 
     localWriteJsonFile(configSnapshotPath, configSnapshot);
     localWriteJsonFile(metricsJsonPath, metrics);
+    timingRows(end + 1) = helperMakeTimingSummaryRow(gateId, ...
+        "write_text_artifacts", toc(stepTimer), ...
+        runnerOptions.ExecutionMode, inputSampleCount, ...
+        inputRepetitionCount, 9 + double(decision ~= "pass"), 0, NaN, ...
+        "Markdown, text, config JSON, and metrics JSON artifacts.");
 
+    stepTimer = tic;
     try
         save(metricsMatPath, "metrics", "manifestTable", "radarTable", ...
             "seamTable", "requirementsCoverageTable");
@@ -136,7 +175,12 @@ try
         error("runG1Ingest:SaveMetricsFailed", ...
             "Failed to write metrics.mat: %s", saveException.message);
     end
+    timingRows(end + 1) = helperMakeTimingSummaryRow(gateId, ...
+        "write_metrics_mat", toc(stepTimer), runnerOptions.ExecutionMode, ...
+        inputSampleCount, inputRepetitionCount, 1, 0, NaN, ...
+        "metrics.mat");
 
+    stepTimer = tic;
     try
         comparisonSnapshotPath = helperWriteComparisonSnapshot( ...
             string(bundleRoot), comparisonSnapshot);
@@ -145,13 +189,28 @@ try
             "Failed to write G1 comparison snapshot: %s", ...
             saveException.message);
     end
+    timingRows(end + 1) = helperMakeTimingSummaryRow(gateId, ...
+        "write_comparison_snapshot", toc(stepTimer), ...
+        runnerOptions.ExecutionMode, inputSampleCount, ...
+        inputRepetitionCount, 1, 0, NaN, "comparison_snapshot.mat");
 
+    stepTimer = tic;
     helperRenderTextSummaryFigure(localTableDisplayLines(manifestTable), ...
         "G1 Manifest vs Observed", manifestFigurePath);
     helperRenderTextSummaryFigure(localTableDisplayLines(seamTable), ...
         "G1 Seam Continuity Summary", seamFigurePath);
     helperRenderTextSummaryFigure(decodeFigureLines, ...
         "G1 Decode Contract Summary", decodeFigurePath);
+    timingRows(end + 1) = helperMakeTimingSummaryRow(gateId, ...
+        "render_figures", toc(stepTimer), runnerOptions.ExecutionMode, ...
+        inputSampleCount, inputRepetitionCount, 3, 3, NaN, ...
+        "Exported hidden text-summary PNG figures.");
+
+    [timingSummaryTable, performanceSummary] = ...
+        helperFinalizePerformanceInstrumentation(gateId, datasetId, ...
+        string(bundleRoot), runTimestampZ, runnerOptions.ExecutionMode, ...
+        runnerOptions.ShowFigures, timingRows, totalTimer, ...
+        inputSampleCount, inputRepetitionCount, string(metricsMatPath));
 
     results = struct();
     results.DatasetId = datasetId;
@@ -163,6 +222,8 @@ try
     results.PassFlags = passFlags;
     results.Metrics = metrics;
     results.ComparisonSnapshotPath = string(comparisonSnapshotPath);
+    results.TimingSummaryTable = timingSummaryTable;
+    results.PerformanceSummary = performanceSummary;
 
     fprintf("Decision:\t%s\n", decision);
     fprintf("Next branch:\t%s\n", nextBranch);
@@ -171,6 +232,14 @@ catch mainException
     localWriteFailureBundle(bundleRoot, mainException);
     rethrow(mainException);
 end
+
+end
+
+function runnerOptions = localResolveRunnerOptions(options)
+
+runnerOptions = struct();
+runnerOptions.ExecutionMode = helperResolveExecutionMode(options);
+runnerOptions.ShowFigures = false;
 
 end
 

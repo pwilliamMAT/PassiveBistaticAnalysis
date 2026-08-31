@@ -1,0 +1,26 @@
+{
+  "manifest_version": 1,
+  "session_id": "multi_target",
+  "session_folder": "multi_target",
+  "session_created_utc": "2026-08-07T16:23:48Z",
+  "capture_duration_s": 1,
+  "capture_repetitions": 1,
+  "capture_repetition_spacing_s": 0,
+  "radar_active_window_s": 1,
+  "radar_recorded_iq_seconds_s": 1,
+  "radar_epoch_utc": 1.782138170238281E+9,
+  "sdr_defaults": {
+    "radio_name": "RealBackgroundSyntheticSuite",
+    "center_frequency_hz": 5.99E+8,
+    "sample_rate_hz": 6.144E+6,
+    "lo_offset_hz": 0
+  },
+  "radar_files": [
+    "radar/g4_5_real_background_20260807T162306840_multi_target.bb"
+  ],
+  "truth_files": [
+    "truth/multi_target_truth.json"
+  ],
+  "data_origin": "real_background_synthetic_target_suite",
+  "generator_name": "generateRealBackgroundSyntheticSuite"
+}

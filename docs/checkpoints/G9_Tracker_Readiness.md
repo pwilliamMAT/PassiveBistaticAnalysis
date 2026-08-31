@@ -12,6 +12,17 @@ Decide whether the validated detections support a fixed measurement contract sui
 - When this gate is implemented, its executable logic should be added to the pipeline script only after G8 has produced a stable detection record schema and persistence evidence.
 - Until then, the pipeline should leave G9 as a placeholder and stop after the last implemented gate.
 
+## Runner Performance Instrumentation Requirement
+
+The future G9 runner must implement the same timing/performance contract used by the G1-G3 runners.
+
+- Return `results.TimingSummaryTable` and `results.PerformanceSummary`.
+- Write `timing_summary.csv` and `performance_summary.json` into each successful evidence bundle.
+- Append `timingSummaryTable` and `performanceSummary` to `metrics.mat` when a metrics MAT artifact is written.
+- Use the common timing table schema: `StageId`, `StepName`, `Elapsed_s`, `ExecutionMode`, `InputSampleCount`, `InputRepetitionCount`, `OutputArtifactCount`, `OutputFigureCount`, `OutputBytes`, and `Notes`.
+- Default `ExecutionMode` is `"review"`; accept and report `"analysis_only"` and `"profile"` where runner options exist.
+- Do not add arbitrary runtime pass/fail thresholds. Timing is observability evidence unless a later requirements document defines explicit performance gates.
+
 ## Requirement IDs in Scope
 
 - `TRK-001` tracker measurement schema and uncertainty contract
@@ -41,6 +52,7 @@ This gate decides whether the program remains at `validated detection` or opens 
 - Continuity summary
 - Fragmentation indicators
 - Measurement-schema definition
+- `timing_summary.csv` and `performance_summary.json`
 - Readiness decision note stating either "open G10" or "hold at validated detection"
 
 ## Expert Note

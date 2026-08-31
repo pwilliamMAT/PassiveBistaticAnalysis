@@ -8,6 +8,13 @@ G7 creates the radar-to-truth timing contract needed to validate detector and tr
 
 If truth alignment is insufficient, diagnostic detector work may continue later, but truth-correlated claims remain blocked.
 
+## Truth Context Diagnostic Mode
+
+`truth_context_diagnostic` mode is allowed before a formal G6 freeze only as capture-level context. It may parse ADS-B truth, reconcile manifest timing against embedded radar `RecordingUTC` and `DateTime`, and write truth import, timing audit, and capture-level truth-overlap tables.
+
+This mode must keep `TruthClaimsEnabled = false` unless a future G6 bundle freezes a detector input product and G7 can derive product-level truth windows. On the current dataset, product/CPI-level truth claims remain blocked, and the output must not be used as detector validation.
+
+The executable diagnostic entry point is `runG7TruthContextDiagnostic`. It does not tune detector thresholds, choose mitigation, freeze CPI/integration, score detections, or validate tracks.
 ## Native Function Discovery
 
 | Proposed Workflow | Native MATLAB Documentation Example Analogue | Updates needed to fit current goal |
@@ -138,10 +145,23 @@ G7 must follow `docs/testing/EvidenceBundleSpec.md`:
 - `config_snapshot.json`
 - `metrics.json`
 - `metrics.mat`
+- `timing_summary.csv`
+- `performance_summary.json`
 - `decision.txt`
 - `failure_cause.txt` when the decision is not `pass`
 - `next_branch.txt`
 - `figures/`
+
+## Runner Performance Instrumentation Requirement
+
+The future G7 runner must implement the same timing/performance contract used by the G1-G3 runners.
+
+- Return `results.TimingSummaryTable` and `results.PerformanceSummary`.
+- Write `timing_summary.csv` and `performance_summary.json` into each successful evidence bundle.
+- Append `timingSummaryTable` and `performanceSummary` to `metrics.mat`.
+- Use the common timing table schema: `StageId`, `StepName`, `Elapsed_s`, `ExecutionMode`, `InputSampleCount`, `InputRepetitionCount`, `OutputArtifactCount`, `OutputFigureCount`, `OutputBytes`, and `Notes`.
+- Default `ExecutionMode` is `"review"`; accept and report `"analysis_only"` and `"profile"` where runner options exist.
+- Do not add arbitrary runtime pass/fail thresholds. Timing is observability evidence unless a later requirements document defines explicit performance gates.
 
 Required G7 figures:
 

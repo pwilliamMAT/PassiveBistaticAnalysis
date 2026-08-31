@@ -372,9 +372,14 @@ gateStatusTable = localBuildGateStatusTable(pipelineResults);
 gateStatusTable(4, :) %[output:31a248ea]
 %%
 %[text] ## G5 Mitigation
-%[text]  Question: do conservative mitigation settings improve the passive map without erasing the nonzero-Doppler content we care about?
-%[text]  Planned approach: G5 will compare no mitigation against candidate cancellation baselines such as |dsp.LMSFilter| once a credible G4 map exists.
-%[text]  Output below: placeholder gate status only. No G5 logic is implemented in this session.
+%[text] **Question:** can mitigation reveal useful off-origin passive-map structure hidden by direct-path leakage, without erasing the nonzero-Doppler content that downstream gates would need?
+%[text] **Approach:** the standalone G5 runner |runG5Mitigation| compares three candidates on the same G4 map contract: |none|, |conservative_lms|, and |aggressive_lms|. The two LMS candidates use |dsp.LMSFilter|; they are parameter profiles of the same adaptive leakage-cancellation algorithm, not separate algorithm families.
+%[text] **Important:** candidates are what G5 runs; assessment labels are what G5 concludes after recomputing maps with |ambgfun| and comparing suppression, protected-region retention, detectability proxies, and carried-forward caveats. A cleaner map by itself is not G5 success.
+%[text] **Candidates being compared:** |none| is the required no-mitigation baseline. |conservative_lms| uses shorter/lower-risk LMS settings. |aggressive_lms| uses longer/higher-suppression LMS settings that must pass stricter retention checks.
+%[text] **Potential assessments:** |scene_revealed| means direct-path suppression coincides with improved off-origin/nonzero-Doppler proxy evidence. |leakage_cleaned_scene_still_limited| means leakage dropped but scene proxies stayed limited. |over_cancelled_scene| means protected-region energy was removed. |visual_only_improvement| means the map looks cleaner or contrast changed without enough usable scene gain. |rate_caveated| means reduced-rate proxies improved but upstream raw/reduced-rate caveats remain.
+%[text] **Plot guide:** Figure 1 compares representative maps across candidates; use it to inspect structure, not to declare success by appearance. Figure 2 checks direct-path suppression. Figure 3 checks protected-region retention. Figure 4 checks residual error power and LMS stability/over-cancellation risk.
+%[text] **Table guide:** |MitigationCausalAssessmentTable| is the primary interpretation table, |DecisionComparisonTable| ranks the candidate posture, and |UpstreamCaveatsCarriedForward| keeps G2/G3/G4 caveats visible. If G4 is blocked, G5 evidence remains diagnostic/manual-review and should not be read as a formal pass.
+%[text] **Output below:** placeholder gate status only. This Live Script does not execute the G5 runner in this section. Use the standalone runner for the actual G5 evidence bundle: |results = runG5Mitigation(datasetId, repoRoot, struct("ShowFigures", false));|
 if ~exist("pipelineResults", "var")
     datasetId = "20260622T102123";
     repoRoot = helperResolveRepoRoot();
