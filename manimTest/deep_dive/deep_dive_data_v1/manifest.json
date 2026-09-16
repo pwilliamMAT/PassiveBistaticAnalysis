@@ -1,0 +1,31 @@
+{
+  "schema_version": "deep_dive_data_v1",
+  "purpose": "Self-contained compact teaching data for a ManimGL video; no raw IQ, retained full ambiguity map, detector replay, objectDetection, or tracker input.",
+  "files": [
+    "analytic_demo.json",
+    "evidence.json"
+  ],
+  "source_evidence": [
+    {
+      "id": "S11",
+      "relative_path": "artifacts/20260622T102123/Field_Background_Synthetic_Demo/field_background_demo_final_20260908/fieldBackgroundSyntheticPipelineResults.mat",
+      "sha256": "d64ac4ef034f6278050b084e9ebbf73a386c91b6f997ff8afe04107ca1cd0dea",
+      "role": "accepted 45 km diagnostic positive control"
+    },
+    {
+      "id": "S12",
+      "relative_path": "artifacts/20260622T102123/Field_Background_Synthetic_Demo/field_background_close_target_support_probe_20260914T190224119Z/fieldBackgroundSyntheticPipelineResults.mat",
+      "sha256": "ed77b873a08381b5291f30765697b65b9690f1bbbd6eb2420429fc2b2a563419",
+      "role": "15 km immutable baseline before a separate support-only replay"
+    }
+  ],
+  "claim_boundary": {
+    "pipeline_recomputation": false,
+    "detector_retuning": false,
+    "field_aircraft_detection_claim": false,
+    "object_detection_emitted": false,
+    "tracking_claim": false,
+    "formal_project_state_changed": false,
+    "r5a_parallel_pool_accessed": false
+  }
+}

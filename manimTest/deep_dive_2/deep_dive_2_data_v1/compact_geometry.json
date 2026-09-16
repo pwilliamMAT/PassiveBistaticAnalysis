@@ -1,0 +1,94 @@
+{
+  "SchemaVersion": "deep_dive_2_compact_geometry_v1",
+  "Purpose": "Compact scalar geometry evidence for a code-drawn instructional sequel.",
+  "ExtractionBoundary": "Read only results.Trajectory; no IQ, maps, replay, pipeline run, or detector modification.",
+  "Sources": [
+    {
+      "Id": "S11",
+      "RelativePath": "artifacts/20260622T102123/Field_Background_Synthetic_Demo/field_background_demo_final_20260908/fieldBackgroundSyntheticPipelineResults.mat",
+      "Sha256": "d64ac4ef034f6278050b084e9ebbf73a386c91b6f997ff8afe04107ca1cd0dea",
+      "Role": "45 km receiver-local north-offset scenario"
+    },
+    {
+      "Id": "S12",
+      "RelativePath": "artifacts/20260622T102123/Field_Background_Synthetic_Demo/field_background_close_target_support_probe_20260914T190224119Z/fieldBackgroundSyntheticPipelineResults.mat",
+      "Sha256": "ed77b873a08381b5291f30765697b65b9690f1bbbd6eb2420429fc2b2a563419",
+      "Role": "15 km receiver-local north-offset scenario"
+    }
+  ],
+  "SharedTxRxGeometry": true,
+  "PlanView": {
+    "CoordinateFrame": "receiver_local_ENU",
+    "Receiver": {
+      "East_km": 0,
+      "North_km": 0
+    },
+    "AltitudeOmitted": true,
+    "Limitation": "Horizontal receiver-local East/North plan view; altitude is omitted."
+  },
+  "Transmitter": {
+    "East_km": 9.2896023078645857,
+    "North_km": 1.1553060492764136,
+    "Up_km": 0.41004082809757281
+  },
+  "DetectorSupport": {
+    "Delay_us": [
+      -1200,
+      -150
+    ],
+    "Doppler_Hz": [
+      -750,
+      750
+    ],
+    "Description": "Frozen diagnostic detector support; unchanged by this extractor."
+  },
+  "DisplayConvention": {
+    "Delay": "tau_display = -tau_excess",
+    "Doppler": "f_display = -f_bistatic",
+    "Limitation": "This project's display convention, not a universal passive-bistatic or CAF sign rule."
+  },
+  "Scenarios": [
+    {
+      "SourceId": "S11",
+      "Label": "45 km receiver-local north-offset scenario",
+      "InitialWaypoint": {
+        "East_km": 2.3828761186450721E-13,
+        "North_km": 45.020835998718709,
+        "Up_km": 2.8258404930406651
+      },
+      "RepresentativeTruthTime_s": 0.5,
+      "PhysicalExcessDelay_us": 269.48924207636964,
+      "PhysicalBistaticDoppler_Hz": -591.94169666513494,
+      "DisplayDelay_us": -269.48924207636964,
+      "DisplayDoppler_Hz": 591.94169666513494,
+      "PhysicalDelayStatement": "Physical excess delay is positive.",
+      "DisplayDelayStatement": "Negative displayed delay is intentional under this project's display convention.",
+      "DetectorEligible": true
+    },
+    {
+      "SourceId": "S12",
+      "Label": "15 km receiver-local north-offset scenario",
+      "InitialWaypoint": {
+        "East_km": -7.4123818194493654E-14,
+        "North_km": 15.007056642767811,
+        "Up_km": 2.9673152658443178
+      },
+      "RepresentativeTruthTime_s": 0.5,
+      "PhysicalExcessDelay_us": 76.506073820668277,
+      "PhysicalBistaticDoppler_Hz": -540.55090663404224,
+      "DisplayDelay_us": -76.506073820668277,
+      "DisplayDoppler_Hz": 540.55090663404224,
+      "PhysicalDelayStatement": "Physical excess delay is positive.",
+      "DisplayDelayStatement": "Negative displayed delay is intentional under this project's display convention.",
+      "DetectorEligible": false
+    }
+  ],
+  "ClaimBoundary": {
+    "PipelineRecomputation": false,
+    "DetectorRetuning": false,
+    "DetectorSupportWidening": false,
+    "FieldAircraftDetectionClaim": false,
+    "ObjectDetectionEmitted": false,
+    "TrackingClaim": false
+  }
+}

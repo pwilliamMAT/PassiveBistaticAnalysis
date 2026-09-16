@@ -1,0 +1,21 @@
+{
+  "schema_version": "deep_dive_2_analytic_demo_v1",
+  "purpose": "Small code-drawn teaching arrays only; not recorded IQ, a saved ambiguity image, or detector output.",
+  "waveform_time_us": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+  "reference_real": [0.0, 0.62, 0.98, 0.79, 0.12, -0.6, -0.99, -0.81, -0.14, 0.58, 0.97, 0.82, 0.16],
+  "misaligned_real": [0.0, 0.0, 0.0, 0.55, 0.92, 0.83, 0.22, -0.48, -0.97, -0.87, -0.28, 0.43, 0.93],
+  "aligned_real": [0.02, 0.59, 0.96, 0.76, 0.1, -0.58, -0.96, -0.78, -0.16, 0.55, 0.95, 0.8, 0.14],
+  "phase_time_ms": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+  "phase_before_rad": [0.0, 0.13, 0.27, 0.4, 0.53, 0.66, 0.8, 0.93, 1.06, 1.19, 1.33],
+  "phase_after_rad": [0.03, -0.02, 0.01, -0.01, 0.02, 0.0, -0.02, 0.01, 0.0, -0.01, 0.02],
+  "cfar_stencil": {
+    "rows_doppler": 11,
+    "columns_delay": 9,
+    "cut_row": 5,
+    "cut_column": 4,
+    "guard_half_rows": 1,
+    "guard_half_columns": 1,
+    "training_half_rows": 4,
+    "training_half_columns": 3
+  }
+}

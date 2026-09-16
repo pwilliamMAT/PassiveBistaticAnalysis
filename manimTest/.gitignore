@@ -1,0 +1,13 @@
+# Isolated Python environment
+.venv/
+.python/
+.uv-cache/
+
+# Derived data and rendered media
+data/
+output/
+*.log
+
+# Python cache
+__pycache__/
+tests/__pycache__/

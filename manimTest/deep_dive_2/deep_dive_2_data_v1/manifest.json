@@ -1,0 +1,22 @@
+{
+  "schema_version": "deep_dive_2_data_v1",
+  "purpose": "Self-contained compact scalar evidence and code-drawn teaching data for Deep Dive 2. It retains no IQ, MATLAB result bundle, ambiguity image, detector replay, objectDetection, or tracker input.",
+  "files": {
+    "analytic_demo.json": {
+      "sha256": "26f3147df38246ccfda97c2c73deeeabcdfa6549e7c6dfb21f29d856a90455a7"
+    },
+    "compact_geometry.json": {
+      "sha256": "e101412b823d981b289071a59c397e49ac3dc58cd0d2972c52ef55e64c2fbda1"
+    }
+  },
+  "fixed_source_ids": ["S11", "S12"],
+  "claim_boundary": {
+    "pipeline_recomputation": false,
+    "detector_retuning": false,
+    "detector_support_widening": false,
+    "field_aircraft_detection_claim": false,
+    "object_detection_emitted": false,
+    "tracking_claim": false,
+    "formal_project_state_changed": false
+  }
+}

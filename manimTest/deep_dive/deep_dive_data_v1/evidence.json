@@ -1,0 +1,69 @@
+{
+  "schema_version": "deep_dive_evidence_v1",
+  "purpose": "Compact saved-evidence scalars for the final applied examples.",
+  "paired_contract": {
+    "reference_channel": "unchanged in control and injected cases",
+    "control_surveillance": "untouched field capture",
+    "injected_surveillance": "field surveillance plus one geometry-driven echo",
+    "truth_use": "post-hoc association only",
+    "claim_boundary": "diagnostic synthetic integration; not field-aircraft detection or tracking"
+  },
+  "map_contract": {
+    "input_sample_rate_hz": 6144000,
+    "decimation_factor": 200,
+    "map_sample_rate_hz": 30720,
+    "cpi_s": 0.1,
+    "map_cpi_samples": 3072,
+    "delay_grid_spacing_us": 32.55208139307797,
+    "saved_doppler_grid_spacing_hz": 3.75,
+    "nominal_cpi_doppler_scale_hz": 10.0,
+    "axis_orientation": "rows_doppler_columns_delay",
+    "caf_equation_policy": "No formal signed or normalized CAF equation is displayed."
+  },
+  "synchronization_summary": {
+    "applied_lag_samples": 1,
+    "applied_residual_frequency_hz": 0.021089433740668833,
+    "residual_frequency_spread_hz": 0.19594639649171294,
+    "window_count": 40,
+    "derived_from": "field-only control",
+    "reused_for": "field-plus-geometry-target"
+  },
+  "detector_contract": {
+    "pfa_design_input": 0.001,
+    "delay_support_us": [-1200, -150],
+    "doppler_support_hz": [-750, 750],
+    "actual_cut_count": 12832,
+    "guard_band_rows_doppler_columns_delay": [3, 1],
+    "training_band_rows_doppler_columns_delay": [12, 4],
+    "training_cell_count": 320,
+    "nms_rows_doppler_columns_delay": [7, 3],
+    "candidate_generation_truth_blind": true,
+    "truth_association": "post-hoc normalized delay/doppler matchpairs"
+  },
+  "final_examples": [
+    {
+      "label": "45 km positive control",
+      "north_offset_km": 45.0,
+      "display_delay_us": -269.48924207636964,
+      "display_doppler_hz": 591.9411696647071,
+      "evaluation_status": "eligible_and_detected",
+      "conclusion": "criterion_passed",
+      "detector_evaluated": true,
+      "injected_truth_matched_post_hoc": true,
+      "matched_control_nuisance_match": false,
+      "source_id": "S11"
+    },
+    {
+      "label": "15 km baseline",
+      "north_offset_km": 15.0,
+      "display_delay_us": -76.456,
+      "display_doppler_hz": 540.5,
+      "evaluation_status": "outside_detector_support_not_evaluated",
+      "conclusion": "not_evaluated_outside_detector_support",
+      "detector_evaluated": false,
+      "injected_truth_matched_post_hoc": false,
+      "matched_control_nuisance_match": false,
+      "source_id": "S12"
+    }
+  ]
+}

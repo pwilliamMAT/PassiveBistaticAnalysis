@@ -4,6 +4,10 @@ This repository is an isolated restart of the passive-bistatic acquisition and a
 
 The repo now contains a working single-session baseline review flow for `G1 Ingest`, `G2 Stage 1 Acquisition Evidence`, and `G2 Stage 2 Receiver Integrity`, plus an artifact-only hardware-comparison path for saved G1/G2 outputs. Later gates remain documentation-led or placeholder-only until they are explicitly opened.
 
+## Authoritative Project Context
+
+Start with [AGENTS.md](AGENTS.md), then read [NorthStar.md](NorthStar.md), [PROJECT_STATE.md](PROJECT_STATE.md), the active plan linked there, [DECISIONS.md](DECISIONS.md), and [LessonsLearned.md](LessonsLearned.md). `PROJECT_STATE.md` is the authority for current status; the detailed progress and lesson sections below are retained pending the approved preservation review.
+
 ## Start Here
 
 - New users should open [runPassiveBistaticPiplineLiveScript.m](runPassiveBistaticPiplineLiveScript.m) in the MATLAB Live Editor first.
@@ -28,6 +32,7 @@ The repo now contains a working single-session baseline review flow for `G1 Inge
 
 - `loadIQData` is the stable ingest helper beneath the current gate runners.
 - The quick synthetic G1-G5 path was executed against `seed_demo_20260730T155438811`, part 1, from safety checkpoint `da82227`. The verified result is under `artifacts/quick/seed_demo_20260730T155438811/20260831T204938868/quickResults.mat`; generated quick artifacts remain untracked. The upstream `seed_preservation_failure` remains an explicit caveat even though packaging integrity and target placement passed.
+- The expanded G5 ADS-B geometry and RF-background campaign completed as `g5_adsb_stress_20260901T141707747`. It exercised 72 synthetic cases across three real part-1 RF backgrounds and produced all 648 expected range-Doppler maps. The compact result is under `artifacts/g5_adsb_stress_20260901T141707747/G5_Synthetic_Stress/20260901T154549472Z/stressResults.mat`; all structural integrity checks passed, no raw IQ or complete map collection is retained in the MAT file, and the 72 transient `.bb` files were removed after validation. The evidence classification is `mixed_requires_retune`: neither LMS profile is supported across every background, `SelectedProduct` is `none_pending_retune`, `G5AnalysisReady` is false, and formal G6 freeze remains disabled. ADS-B is trajectory truth used only after map formation; this result makes no detection, tracking, field-performance, or calibrated-RCS claim.
 - `runG1Ingest` is implemented and acts as the frozen upstream contract for current G2 work.
 - `runG2Stage1AcquisitionEvidence` is implemented and manually accepted for progression on the baseline session `20260622T102123`.
 - `runG2Stage2ReceiverIntegrity` is implemented and manually reviewed for the baseline session `20260622T102123`. The saved Stage 2 RF outcome remains caveated and diagnostic, but the checklist is now approved for progression to Stage 3 review.

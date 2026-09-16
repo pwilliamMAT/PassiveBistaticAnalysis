@@ -1,6 +1,6 @@
 # Passive Bistatic Restart Project Plan
 
-This file is the canonical roadmap and index for the council-derived planning package. It defines approved gate sequencing, evidence expectations, milestone meanings, and reopen rules for MATLAB implementation. Executable MATLAB work is now authorized on an explicitly approved, gate-by-gate basis. `G1 Ingest` is the current active implementation phase; later gates remain documentation-led until they are explicitly opened.
+This file is the stable gate roadmap and index for the council-derived planning package. It defines approved gate sequencing, evidence expectations, milestone meanings, and reopen rules, but it does not own current implementation status. See [PROJECT_STATE.md](PROJECT_STATE.md) for the active milestone, verified state, blocker, and next action; follow the active plan linked there for currently authorized work.
 
 ## Planning Reference Session
 
