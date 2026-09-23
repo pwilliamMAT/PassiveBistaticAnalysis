@@ -27,13 +27,22 @@ manifestPath = fullfile(datasetRoot, "session_manifest.json");
 includeSamples = localResolveIncludeSamples(options);
 
 manifest = localReadManifest(manifestPath);
+manifestNormalization = localBuildManifestNormalization(manifest);
 observedFiles = localCollectObservedFiles(datasetRoot);
 manifestTable = localBuildManifestTable(manifest, observedFiles);
 
-radarRelativePaths = string(manifest.radar_files(:));
-packageScanCount = numel(radarRelativePaths);
-selectedManifestIndices = localResolvePartSelection(options, packageScanCount);
-selectedRadarRelativePaths = radarRelativePaths(selectedManifestIndices);
+radarRelativePaths = localManifestPaths(manifest, "radar_files");
+partSelection = "all";
+
+if isfield(options, "PartSelection")
+    partSelection = options.PartSelection;
+end
+
+selectionContract = helperResolvePartSelection(partSelection, ...
+    radarRelativePaths);
+selectedManifestIndices = selectionContract.SelectedManifestIndices;
+selectedRadarRelativePaths = ...
+    selectionContract.SelectedRadarRelativePaths;
 scanCount = numel(selectedRadarRelativePaths);
 radarScanCells = cell(scanCount, 1);
 
@@ -46,7 +55,8 @@ for idx = 1:scanCount
     radarScanCells{idx}.ManifestIndex = manifestIndex;
     radarScanCells{idx}.RelativePath = selectedRadarRelativePaths(idx);
     radarScanCells{idx}.FileSuffixRepetition = ...
-        localExtractFileSuffixRepetition(selectedRadarRelativePaths(idx));
+        localExtractFileSuffixRepetition(selectedRadarRelativePaths(idx), ...
+        manifestIndex);
 end
 
 radarScans = vertcat(radarScanCells{:});
@@ -59,12 +69,13 @@ sessionData.RepoRoot = repoRoot;
 sessionData.DatasetRoot = string(datasetRoot);
 sessionData.ManifestPath = string(manifestPath);
 sessionData.Manifest = manifest;
+sessionData.ManifestNormalization = manifestNormalization;
 sessionData.ObservedInventoryTable = observedFiles;
 sessionData.ManifestInventoryTable = manifestTable;
 sessionData.PackageRadarRelativePaths = radarRelativePaths;
 sessionData.SelectedRadarRelativePaths = selectedRadarRelativePaths;
-sessionData.PartSelection = localBuildPartSelectionContract( ...
-    options, selectedManifestIndices, radarScans, packageScanCount);
+selectionContract.SelectedRepetitions = [radarScans.Repetition].';
+sessionData.PartSelection = selectionContract;
 sessionData.RadarScans = radarScans;
 sessionData.RadarTable = radarTable;
 sessionData.SeamTable = seamTable;
@@ -108,54 +119,53 @@ end
 
 end
 
-function selectedManifestIndices = localResolvePartSelection(options, ...
-    packageScanCount)
+function normalization = localBuildManifestNormalization(manifest)
 
-partSelection = "all";
+radarPaths = localManifestPaths(manifest, "radar_files");
+adsbPaths = localManifestPaths(manifest, "adsb_files");
+truthPaths = localManifestPaths(manifest, "truth_files");
+logPaths = localManifestPaths(manifest, "log_files");
 
-if isfield(options, "PartSelection")
-    partSelection = options.PartSelection;
+if isempty(radarPaths)
+    error("loadIQData:MissingRadarFiles", ...
+        "The session manifest must declare at least one radar file.");
 end
 
-if (isstring(partSelection) || ischar(partSelection)) && ...
-        isscalar(string(partSelection))
-    if strcmpi(strtrim(string(partSelection)), "all")
-        selectedManifestIndices = (1:packageScanCount).';
-        return;
-    end
-
-    error("loadIQData:InvalidPartSelection", ...
-        "PartSelection text must be ""all"".");
+if ~isempty(adsbPaths) && ~isempty(truthPaths)
+    truthFieldUsed = "adsb_files_and_truth_files";
+elseif ~isempty(truthPaths)
+    truthFieldUsed = "truth_files";
+elseif ~isempty(adsbPaths)
+    truthFieldUsed = "adsb_files";
+else
+    truthFieldUsed = "none";
 end
 
-if isnumeric(partSelection) && isscalar(partSelection) && ...
-        isfinite(partSelection) && partSelection == 1
-    selectedManifestIndices = 1;
-    return;
+missingOptionalFields = strings(0, 1);
+
+if ~isfield(manifest, "adsb_files")
+    missingOptionalFields(end + 1, 1) = "adsb_files";
 end
 
-error("loadIQData:InvalidPartSelection", ...
-    "PartSelection must be part 1 or ""all"" for this integration.");
-
+if ~isfield(manifest, "truth_files")
+    missingOptionalFields(end + 1, 1) = "truth_files";
 end
 
-function contract = localBuildPartSelectionContract(options, ...
-    selectedManifestIndices, radarScans, packageScanCount)
-
-requested = "all";
-
-if isfield(options, "PartSelection")
-    requested = string(options.PartSelection);
+if ~isfield(manifest, "log_files")
+    missingOptionalFields(end + 1, 1) = "log_files";
 end
 
-contract = struct();
-contract.Requested = requested;
-contract.PackagePartCount = packageScanCount;
-contract.SelectedPartCount = numel(selectedManifestIndices);
-contract.SelectedManifestIndices = selectedManifestIndices(:);
-contract.SelectedRepetitions = [radarScans.Repetition].';
-contract.AllPartsSelected = ...
-    numel(selectedManifestIndices) == packageScanCount;
+normalization = struct();
+normalization.Schema = "session_manifest_v1_compatible";
+normalization.SourceManifestUnchanged = true;
+normalization.TruthFieldUsed = truthFieldUsed;
+normalization.RadarFileCount = double(numel(radarPaths));
+normalization.TruthFileCount = double(numel(unique( ...
+    [adsbPaths; truthPaths], "stable")));
+normalization.LogFileCount = double(numel(logPaths));
+normalization.MissingOptionalFields = missingOptionalFields;
+normalization.OmittedEmptyFieldsTolerated = ...
+    ~isempty(missingOptionalFields);
 
 end
 
@@ -201,17 +211,21 @@ if isfield(manifest, "traceability_truth_file")
         strlength(strtrim(traceabilityTruthPaths)) > 0);
 end
 
+radarPaths = localManifestPaths(manifest, "radar_files");
+adsbPaths = localManifestPaths(manifest, "adsb_files");
+truthPaths = localManifestPaths(manifest, "truth_files");
+truthPaths = unique([adsbPaths; truthPaths; traceabilityTruthPaths(:)], ...
+    "stable");
+logPaths = localManifestPaths(manifest, "log_files");
 requiredPaths = [ ...
-    string(manifest.radar_files(:)); ...
-    string(manifest.adsb_files(:)); ...
-    traceabilityTruthPaths(:); ...
-    string(manifest.log_files(:)) ...
+    radarPaths; ...
+    truthPaths; ...
+    logPaths ...
     ];
 requiredType = [ ...
-    repmat("radar", numel(manifest.radar_files), 1); ...
-    repmat("truth", numel(manifest.adsb_files), 1); ...
-    repmat("truth", numel(traceabilityTruthPaths), 1); ...
-    repmat("logs", numel(manifest.log_files), 1) ...
+    repmat("radar", numel(radarPaths), 1); ...
+    repmat("truth", numel(truthPaths), 1); ...
+    repmat("logs", numel(logPaths), 1) ...
     ];
 manifestIndex = (1:numel(requiredPaths)).';
 
@@ -267,6 +281,20 @@ supportExtraTable = table( ...
     VariableNames = requiredTable.Properties.VariableNames);
 
 manifestTable = [requiredTable; sourceExtraTable; supportExtraTable];
+
+end
+
+function paths = localManifestPaths(manifest, fieldName)
+
+paths = strings(0, 1);
+
+if ~isfield(manifest, fieldName)
+    return
+end
+
+candidatePaths = string(manifest.(fieldName));
+candidatePaths = candidatePaths(:);
+paths = candidatePaths(strlength(strtrim(candidatePaths)) > 0);
 
 end
 
@@ -574,13 +602,14 @@ includeSamples = logical(options.IncludeSamples);
 
 end
 
-function value = localExtractFileSuffixRepetition(relativePath)
+function value = localExtractFileSuffixRepetition(relativePath, ...
+    manifestIndex)
 
 token = regexp(relativePath, "_part(\d+)(?:\.bb)?$", "tokens", "once");
 
 if isempty(token)
-    error("loadIQData:InvalidRadarFilename", ...
-        "Unable to parse repetition suffix from %s", relativePath);
+    value = double(manifestIndex);
+    return
 end
 
 value = str2double(token{1});

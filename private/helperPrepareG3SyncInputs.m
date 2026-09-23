@@ -99,6 +99,9 @@ resolvedOptions.StrategyPhasePassThreshold_deg = 15.0;
 resolvedOptions.StrategyPassFractionMargin = 0.05;
 resolvedOptions.StrategyLagEquivalenceMarginSamples = 0.5;
 resolvedOptions.StrategyPhaseEquivalenceMargin_deg = 5.0;
+resolvedOptions.ConfiguredDirectPathLag_samples = NaN;
+resolvedOptions.ConfiguredDirectPathResidualFrequency_Hz = NaN;
+resolvedOptions.ConfiguredDirectPathCorrectionSource = "not_configured";
 
 optionFields = fieldnames(options);
 

@@ -45,6 +45,8 @@ analysis.DecisionTraceTable = decisionTraceTable;
 analysis.RoleEvidence = roleEvidence;
 analysis.CollectionMetadataInfo = collectionMetadataInfo;
 analysis.Options = rmfield(resolvedOptions, "WelchWindow");
+analysis.FieldGateApplicability = localResolveFieldGateApplicability( ...
+    resolvedOptions);
 analysis.Metrics = localBuildMetrics(receiverIntegrityTable, ...
     channelSummaryTable, roleInfo, roleEvidence, ...
     receiverIntegrityVerdict, legalGateRecommendation, ...
@@ -61,6 +63,7 @@ sampleRateVector = unique(sessionData.RadarTable.SampleRate_Hz);
 
 resolvedOptions = struct();
 resolvedOptions.SampleRateHz = sampleRateVector(1);
+resolvedOptions.DataProfile = "field_capture";
 resolvedOptions.WelchLength = 4096;
 resolvedOptions.WelchOverlap = 2048;
 resolvedOptions.WelchNfft = 4096;
@@ -98,6 +101,14 @@ resolvedOptions.WelchOverlap = min(resolvedOptions.WelchOverlap, ...
     resolvedOptions.WelchLength - 1);
 resolvedOptions.WelchWindow = hann(resolvedOptions.WelchLength, ...
     "periodic");
+resolvedOptions.DataProfile = lower(strtrim( ...
+    string(resolvedOptions.DataProfile)));
+
+if ~ismember(resolvedOptions.DataProfile, ...
+        ["field_capture", "synthetic"])
+    error("helperAnalyzeG2ReceiverIntegrity:InvalidDataProfile", ...
+        "DataProfile must be ""field_capture"" or ""synthetic"".");
+end
 
 end
 
@@ -118,6 +129,7 @@ repetitionCount = height(radarTable);
 referencePsdAccumulator = [];
 surveillancePsdAccumulator = [];
 psdFrequencyHz = [];
+iqScaleInfo = struct();
 
 rowTemplate = struct( ...
     "Repetition", NaN, ...
@@ -157,18 +169,27 @@ rows = repmat(rowTemplate, repetitionCount, 1);
 
 for idx = 1:repetitionCount
     samples = helperResolveRadarSamples(sessionData, idx);
+    repetitionScaleInfo = helperResolveIqFullScale(samples, ...
+        resolvedOptions.DataProfile);
     referenceSamples = double(samples(:, roleInfo.ReferenceColumnIndex));
     surveillanceSamples = double(samples(:, ...
         roleInfo.SurveillanceColumnIndex));
 
     [referenceMetrics, referencePsd, psdFrequencyHz] = ...
-        localComputeChannelMetrics(referenceSamples, resolvedOptions);
+        localComputeChannelMetrics(referenceSamples, resolvedOptions, ...
+        repetitionScaleInfo.FullScale);
     [surveillanceMetrics, surveillancePsd, ~] = ...
-        localComputeChannelMetrics(surveillanceSamples, resolvedOptions);
+        localComputeChannelMetrics(surveillanceSamples, resolvedOptions, ...
+        repetitionScaleInfo.FullScale);
 
     if isempty(referencePsdAccumulator)
         referencePsdAccumulator = zeros(size(referencePsd));
         surveillancePsdAccumulator = zeros(size(surveillancePsd));
+        iqScaleInfo = repetitionScaleInfo;
+    elseif repetitionScaleInfo.FullScale ~= iqScaleInfo.FullScale || ...
+            repetitionScaleInfo.SourceClass ~= iqScaleInfo.SourceClass
+        error("helperAnalyzeG2ReceiverIntegrity:InconsistentIqScaling", ...
+            "All selected repetitions must use one IQ scale convention.");
     end
 
     referencePsdAccumulator = referencePsdAccumulator + referencePsd;
@@ -255,13 +276,13 @@ roleEvidence.ReferenceMinusSurveillancePower_dB_Median = median( ...
     receiverIntegrityTable.ReferenceMinusSurveillancePower_dB);
 roleEvidence.ReferenceMinusSurveillancePower_dB_Max = max( ...
     receiverIntegrityTable.ReferenceMinusSurveillancePower_dB);
+roleEvidence.IqScale = iqScaleInfo;
 
 end
 
 function [channelMetrics, pxx, frequencyHz] = localComputeChannelMetrics( ...
-    samples, resolvedOptions)
+    samples, resolvedOptions, fullScale)
 
-fullScale = double(intmax("int16"));
 meanPower = mean(abs(samples).^2);
 maxMagnitude = max(abs(samples));
 maxComponentAbs = max([max(abs(real(samples))), max(abs(imag(samples)))]);
@@ -352,6 +373,13 @@ function [powerFlag, repetitionVerdict, caveatNotes] = ...
     referenceMetrics, surveillanceMetrics, resolvedOptions)
 
 caveatTokens = strings(0, 1);
+
+if resolvedOptions.DataProfile == "synthetic"
+    powerFlag = "NOT_APPLICABLE_SYNTHETIC_PROFILE";
+    repetitionVerdict = "numeric_characterization_complete";
+    caveatNotes = "";
+    return
+end
 
 if referenceMinusSurveillancePowerDb < ...
         resolvedOptions.ReferencePowerMinimumThreshold_dB
@@ -543,6 +571,19 @@ function [receiverIntegrityVerdict, legalGateRecommendation, ...
     decisionTraceTable] = localDetermineStage2Verdicts( ...
     receiverIntegrityTable, ~, ~, ...
     resolvedOptions)
+
+if resolvedOptions.DataProfile == "synthetic"
+    receiverIntegrityVerdict = ...
+        "synthetic_numeric_health_characterized";
+    legalGateRecommendation = "NOT_APPLICABLE_SYNTHETIC_PROFILE";
+    datasetClassificationRecommendation = ...
+        "NOT_APPLICABLE_SYNTHETIC_PROFILE";
+    classificationImpact = "Field hardware and reference-margin gates " + ...
+        "are not applied to normalized synthetic IQ.";
+    decisionTraceTable = localBuildSyntheticDecisionTrace( ...
+        receiverIntegrityTable);
+    return
+end
 
 referencePowerVector = ...
     receiverIntegrityTable.ReferenceMinusSurveillancePower_dB;
@@ -771,6 +812,15 @@ analysisInterpretation = "Stage 2 used a verified role mapping and " + ...
     "produced a complete finite metrics set, so the current result is " + ...
     "analytically trustworthy.";
 
+if resolvedOptions.DataProfile == "synthetic"
+    developmentReadiness = "synthetic_numeric_analysis_complete";
+    developmentBlockingReason = "none";
+    developmentInterpretation = "Transferable numerical metrics are " + ...
+        "complete. Field hardware and reference-margin gates are " + ...
+        "NOT_APPLICABLE to this synthetic profile.";
+    return
+end
+
 if receiverIntegrityVerdict == "receiver_integrity_acceptable"
     developmentReadiness = "ready_for_gate_progression";
     developmentBlockingReason = "ready_for_gate_progression";
@@ -947,6 +997,45 @@ if index > height(receiverIntegrityTable)
 end
 
 value = receiverIntegrityTable.Repetition(index);
+
+end
+
+function decisionTraceTable = localBuildSyntheticDecisionTrace( ...
+    receiverIntegrityTable)
+
+decisionItem = [ ...
+    "numeric_signal_health"; ...
+    "field_hardware_and_reference_margin_gates" ...
+    ];
+metricOrEvidence = [ ...
+    sprintf("Finite repetitions analyzed = %d", ...
+    height(receiverIntegrityTable)); ...
+    "DataProfile=synthetic" ...
+    ];
+thresholdRule = [ ...
+    "All transferable metrics must be finite"; ...
+    "NOT_APPLICABLE_SYNTHETIC_PROFILE" ...
+    ];
+worstCaseIndex = [NaN; NaN];
+effect = [ ...
+    "numeric characterization retained"; ...
+    "does not block synthetic evaluation" ...
+    ];
+decisionTraceTable = table(decisionItem, metricOrEvidence, thresholdRule, ...
+    worstCaseIndex, effect, VariableNames={ ...
+    'DecisionItem', 'MetricOrEvidence', 'ThresholdRule', ...
+    'WorstCaseIndex', 'Effect'});
+
+end
+
+function applicability = localResolveFieldGateApplicability( ...
+    resolvedOptions)
+
+if resolvedOptions.DataProfile == "synthetic"
+    applicability = "NOT_APPLICABLE_SYNTHETIC_PROFILE";
+else
+    applicability = "APPLICABLE_FIELD_CAPTURE";
+end
 
 end
 

@@ -34,10 +34,9 @@ try
         nativeException);
 catch fallbackException
     error("helperScanBasebandCaptureFile:FallbackScanFailed", ...
-        [ ...
-        "Failed to scan %s. Native reader failed with: %s Raw fread ", ...
-        "fallback failed with: %s" ...
-        ], filePath, nativeException.message, fallbackException.message);
+        "Failed to scan %s. Native reader failed with: %s " + ...
+        "Raw fread fallback failed with: %s", ...
+        filePath, nativeException.message, fallbackException.message);
 end
 
 end
@@ -105,7 +104,7 @@ end
 function scan = localScanWithRawFallback(filePath, includeSamples, fileInfo, ...
     nativeException)
 
-[fileIdentifier, cleanupObject] = localOpenFileForRead(filePath);
+[fileIdentifier, cleanupObject] = localOpenFileForRead(filePath); %#ok<ASGLU>
 
 try
     prefixBytes = localReadExactBytes(fileIdentifier, 48, filePath, ...
@@ -255,7 +254,8 @@ scan.DateTimeVsRecording_ms = milliseconds(dateTimeUtc - ...
     recordingUtcDateTime);
 scan.RecordingUTC = double(metadata.RecordingUTC);
 scan.Duration_s = double(metadata.Duration_s);
-scan.Repetition = double(metadata.Repetition);
+scan.Repetition = localOptionalNumericMetadataValue(metadata, ...
+    "Repetition", 1.0);
 scan.MeanPowerCh1 = mean(abs(channel1) .^ 2);
 scan.MeanPowerCh2 = mean(abs(channel2) .^ 2);
 scan.ChannelCorrelationMagnitude = double(channelCorrelationMagnitude);
@@ -300,6 +300,17 @@ channelLabels = "CH" + string(1:numChannels);
 source = "generated_index_labels";
 
 if ~isfield(metadata, "Antenna1") || ~isfield(metadata, "Antenna2")
+    if isfield(metadata, "ChannelMapping")
+        mapping = lower(string(metadata.ChannelMapping));
+
+        if contains(mapping, "ch1=surveillance") && ...
+                contains(mapping, "ch2=") && ...
+                contains(mapping, "reference")
+            channelLabels(1:2) = ["surveillance", "reference"];
+            source = "embedded_channel_mapping";
+        end
+    end
+
     return;
 end
 
@@ -317,8 +328,20 @@ function timeZone = localResolveMetadataTimeZone(metadata)
 timeZone = "America/New_York";
 
 if isfield(metadata, "DataOrigin") && ...
-        strcmpi(string(metadata.DataOrigin), "synthetic")
+        contains(string(metadata.DataOrigin), "synthetic", ...
+        IgnoreCase=true)
     timeZone = "UTC";
+end
+
+end
+
+function value = localOptionalNumericMetadataValue(metadata, fieldName, ...
+    defaultValue)
+
+value = double(defaultValue);
+
+if isfield(metadata, fieldName) && ~isempty(metadata.(fieldName))
+    value = double(metadata.(fieldName));
 end
 
 end

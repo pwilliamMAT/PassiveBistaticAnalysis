@@ -31,7 +31,8 @@ preprocessedSignals = localBuildPreprocessedSignals(sessionData, syncPrep, ...
     appliedCorrection, resolvedOptions);
 baselineProductDefinition = localBuildBaselineProductDefinition(syncPrep, ...
     appliedCorrection, resolvedOptions);
-[mapSummaryTable, repeatabilityTable, representativeMaps] = ...
+[mapSummaryTable, repeatabilityTable, representativeMaps, ...
+    targetEvidenceTable, targetRegionViews] = ...
     localBuildMapProducts(selectedWindows, preprocessedSignals, ...
     baselineProductDefinition, resolvedOptions, appliedCorrection);
 fullRateAuditSummaryTable = localBuildFullRateAuditSummaryTable( ...
@@ -48,6 +49,10 @@ interpretation = localBuildInterpretation(questionSummaries, ...
     mapSummaryTable, repeatabilityTable, syncPrep, upstreamStatus, ...
     recommendedBaselineCpiLabel, fullRateAuditSummaryTable, ...
     resolvedOptions);
+interpretation = localApplyDataProfileInterpretation(interpretation, ...
+    targetEvidenceTable, resolvedOptions);
+mapIntegrity = localBuildMapIntegrity(mapSummaryTable, ...
+    representativeMaps);
 
 analysis = struct();
 analysis.DatasetId = string(sessionData.DatasetId);
@@ -70,9 +75,12 @@ end
 
 analysis.QuestionSummaries = questionSummaries;
 analysis.Interpretation = interpretation;
+analysis.MapIntegrity = mapIntegrity;
 analysis.RecommendedBaselineCpiLabel = recommendedBaselineCpiLabel;
 analysis.RepresentativeMaps = representativeMaps;
 analysis.RawAxisRepresentativeMaps = representativeMaps;
+analysis.SyntheticTargetEvidenceTable = targetEvidenceTable;
+analysis.SyntheticTargetRegionViews = targetRegionViews;
 
 end
 
@@ -83,7 +91,11 @@ mapOnlyFields = [ ...
     "MapCpiLabels"; ...
     "MapCpiDurations_s"; ...
     "MapWindowLabels"; ...
-    "RunFullRateAudit" ...
+    "RunFullRateAudit"; ...
+    "RunPostHocSyntheticTargetEvidence"; ...
+    "SyntheticTruth"; ...
+    "TargetLagUncertainty_samples"; ...
+    "TargetResidualFrequencyUncertainty_Hz" ...
     ];
 
 for idx = 1:numel(mapOnlyFields)
@@ -243,6 +255,10 @@ resolvedOptions.FullRateAuditWindowLabel = "center";
 resolvedOptions.FullRateAuditCpiLabels = ["short"; "medium"; "long"];
 resolvedOptions.FullRateAuditMethod = "ambgfun_cut_proxy";
 resolvedOptions.RunFullRateAudit = true;
+resolvedOptions.RunPostHocSyntheticTargetEvidence = false;
+resolvedOptions.SyntheticTruth = struct();
+resolvedOptions.TargetLagUncertainty_samples = NaN;
+resolvedOptions.TargetResidualFrequencyUncertainty_Hz = NaN;
 resolvedOptions.FullRateAuditDelayCutSearchRadius_nativeSamples = ...
     2.0 * resolvedOptions.MapDecimationFactor;
 resolvedOptions.FullRateAuditDopplerCutSearchRadius_Hz = 10.0;
@@ -270,6 +286,13 @@ for idx = 1:numel(optionFields)
     fieldName = optionFields{idx};
     resolvedOptions.(fieldName) = options.(fieldName);
 end
+
+if ~isfield(resolvedOptions, "DataProfile")
+    resolvedOptions.DataProfile = "field_capture";
+end
+
+resolvedOptions.DataProfile = lower(strtrim( ...
+    string(resolvedOptions.DataProfile)));
 
 hasExplicitCpiLabels = isfield(options, "MapCpiLabels");
 hasExplicitCpiDurations = isfield(options, "MapCpiDurations_s");
@@ -352,10 +375,24 @@ resolvedOptions.FullRateAuditCpiLabels = string( ...
 resolvedOptions.FullRateAuditWindowLabel = string( ...
     resolvedOptions.FullRateAuditWindowLabel);
 resolvedOptions.RunFullRateAudit = logical(resolvedOptions.RunFullRateAudit);
+resolvedOptions.RunPostHocSyntheticTargetEvidence = logical( ...
+    resolvedOptions.RunPostHocSyntheticTargetEvidence);
 
 if ~isscalar(resolvedOptions.RunFullRateAudit)
     error("helperAnalyzeG4PassiveBaselineMap:InvalidRunFullRateAudit", ...
         "RunFullRateAudit must be a logical scalar.");
+end
+
+if ~isscalar(resolvedOptions.RunPostHocSyntheticTargetEvidence)
+    error("helperAnalyzeG4PassiveBaselineMap:InvalidTargetEvidenceOption", ...
+        "RunPostHocSyntheticTargetEvidence must be a logical scalar.");
+end
+
+if resolvedOptions.RunPostHocSyntheticTargetEvidence && ...
+        (~isfield(resolvedOptions, "DataProfile") || ...
+        string(resolvedOptions.DataProfile) ~= "synthetic")
+    error("helperAnalyzeG4PassiveBaselineMap:InvalidTargetEvidenceProfile", ...
+        "Post-hoc scenario truth is supported only for synthetic data.");
 end
 
 resolvedOptions.MapCpiSampleCounts = round( ...
@@ -615,10 +652,10 @@ for repetitionIndex = 1:repetitionCount
         correctedSurveillance, ...
         appliedCorrection.AppliedResidualFrequency_Hz, ...
         syncPrep.ResolvedOptions.SampleRateHz);
-    referenceMapSamples = single(resample(referenceSamples, 1, ...
-        resolvedOptions.MapDecimationFactor));
-    surveillanceMapSamples = single(resample(correctedSurveillance, 1, ...
-        resolvedOptions.MapDecimationFactor));
+    referenceMapSamples = helperResampleG4FullRepetition( ...
+        referenceSamples, resolvedOptions.MapDecimationFactor);
+    surveillanceMapSamples = helperResampleG4FullRepetition( ...
+        correctedSurveillance, resolvedOptions.MapDecimationFactor);
 
     preprocessedSignals(repetitionIndex).Repetition = ...
         double(sessionData.RadarTable.Repetition(repetitionIndex));
@@ -709,7 +746,8 @@ baselineProductDefinition.AppliedCorrectionSource = ...
 
 end
 
-function [mapSummaryTable, repeatabilityTable, representativeMaps] = ...
+function [mapSummaryTable, repeatabilityTable, representativeMaps, ...
+    targetEvidenceTable, targetRegionViews] = ...
     localBuildMapProducts(selectedWindows, preprocessedSignals, ...
     baselineProductDefinition, resolvedOptions, appliedCorrection)
 
@@ -723,6 +761,8 @@ representativeMaps = repmat(localBuildRepresentativeMapTemplate(), ...
     1);
 mapRowIndex = 0;
 groupIndex = 0;
+targetEvidenceTable = table();
+targetRegionViews = struct([]);
 
 for cpiIndex = 1:numel(resolvedOptions.CpiLabels)
     cpiLabel = resolvedOptions.CpiLabels(cpiIndex);
@@ -766,7 +806,28 @@ for cpiIndex = 1:numel(resolvedOptions.CpiLabels)
                 selectedWindow, cpiDefinition, mapProduct, ...
                 appliedCorrection, interpretationLabel, rationale);
             mapRows(mapRowIndex) = groupMapRows(repetitionIndex);
-            groupProducts{repetitionIndex} = mapProduct;
+            if resolvedOptions.RunPostHocSyntheticTargetEvidence
+                evidenceContext = localBuildTargetEvidenceContext( ...
+                    selectedWindow, mapProduct, appliedCorrection, ...
+                    resolvedOptions);
+                targetEvidence = helperAnalyzeSyntheticTargetEvidence( ...
+                    mapProduct.MapLinear, mapProduct.RawDelayAxis_s, ...
+                    mapProduct.RawDopplerAxis_Hz, ...
+                    resolvedOptions.SyntheticTruth, evidenceContext);
+                targetEvidenceTable = [targetEvidenceTable; ...
+                    targetEvidence.TargetTable]; %#ok<AGROW>
+
+                if isempty(targetRegionViews)
+                    targetRegionViews = ...
+                        targetEvidence.TargetRegionViews;
+                else
+                    targetRegionViews = [targetRegionViews; ...
+                        targetEvidence.TargetRegionViews]; %#ok<AGROW>
+                end
+            end
+
+            groupProducts{repetitionIndex} = rmfield(mapProduct, ...
+                "MapLinear");
         end
 
         groupIndex = groupIndex + 1;
@@ -782,6 +843,42 @@ mapSummaryTable = struct2table(mapRows(1:mapRowIndex));
 mapSummaryTable = sortrows(mapSummaryTable, ...
     ["Repetition", "CpiLabel", "WindowStartSample"]);
 repeatabilityTable = struct2table(repeatabilityRows);
+
+end
+
+function context = localBuildTargetEvidenceContext(selectedWindow, ...
+    mapProduct, appliedCorrection, resolvedOptions)
+
+repetition = double(selectedWindow.Repetition(1));
+partStartOffsets_s = double( ...
+    resolvedOptions.SyntheticTruth.part_start_offsets_s(:));
+
+if repetition > numel(partStartOffsets_s)
+    error("helperAnalyzeG4PassiveBaselineMap:MissingTruthPartOffset", ...
+        "Scenario truth has no start offset for repetition %d.", ...
+        repetition);
+end
+
+context = struct();
+context.CandidateName = "baseline";
+context.Repetition = repetition;
+context.CpiLabel = string(selectedWindow.CpiLabel(1));
+context.WindowLabel = string(selectedWindow.WindowLabel(1));
+context.NativeSampleRateHz = double(resolvedOptions.SampleRateHz);
+context.MapSampleRateHz = double(resolvedOptions.MapSampleRateHz);
+context.PartStartOffset_s = partStartOffsets_s(repetition);
+context.CpiStart_s = (double(selectedWindow.WindowStartSample(1)) - 1.0) ./ ...
+    double(resolvedOptions.SampleRateHz);
+context.CpiDuration_s = double(selectedWindow.CpiDuration_s(1));
+context.DirectPathDelay_s = double(mapProduct.DirectPathDelay_s);
+context.DirectPathDoppler_Hz = double(mapProduct.DirectPathDoppler_Hz);
+context.AppliedLag_samples = double(appliedCorrection.AppliedLag_samples);
+context.AppliedResidualFrequency_Hz = ...
+    double(appliedCorrection.AppliedResidualFrequency_Hz);
+context.LagUncertainty_samples = ...
+    double(resolvedOptions.TargetLagUncertainty_samples);
+context.ResidualFrequencyUncertainty_Hz = ...
+    double(resolvedOptions.TargetResidualFrequencyUncertainty_Hz);
 
 end
 
@@ -1238,6 +1335,10 @@ rowTemplate = struct( ...
     "WindowIndex", NaN, ...
     "CpiDuration_s", NaN, ...
     "CpiSamples", NaN, ...
+    "FullMapRows", NaN, ...
+    "FullMapColumns", NaN, ...
+    "MapFinite", false, ...
+    "AxisOrientation", "", ...
     "MapRateMode", "", ...
     "MapDecimationFactor", NaN, ...
     "MapSampleRateHz", NaN, ...
@@ -1289,6 +1390,10 @@ row.WindowStartSample = double(selectedWindow.WindowStartSample);
 row.WindowIndex = double(selectedWindow.WindowIndex);
 row.CpiDuration_s = double(cpiDefinition.Duration_s);
 row.CpiSamples = double(cpiDefinition.MapSamples);
+row.FullMapRows = double(mapProduct.FullMapSize(1));
+row.FullMapColumns = double(mapProduct.FullMapSize(2));
+row.MapFinite = logical(mapProduct.MapFinite);
+row.AxisOrientation = string(mapProduct.AxisOrientation);
 row.MapRateMode = string(mapProduct.MapRateMode);
 row.MapDecimationFactor = double(mapProduct.MapDecimationFactor);
 row.MapSampleRateHz = double(mapProduct.MapSampleRateHz);
@@ -1345,12 +1450,12 @@ function mapProduct = localBuildMapProduct(referenceWindow, ...
     surveillanceWindow, cpiDefinition, baselineProductDefinition, ...
     resolvedOptions)
 
-[mapMagnitude, delayAxis_s, dopplerAxis_Hz] = ambgfun( ...
-    referenceWindow, surveillanceWindow, resolvedOptions.MapSampleRateHz, ...
-    cpiDefinition.PRFVector_Hz);
-mapLinear = max(single(mapMagnitude) .^ 2, eps("single"));
-delayAxis_s = double(delayAxis_s(:).');
-dopplerAxis_Hz = double(dopplerAxis_Hz(:));
+productionMap = helperFormG4ProductionMap( ...
+    referenceWindow, surveillanceWindow, ...
+    resolvedOptions.MapSampleRateHz, cpiDefinition.PRFVector_Hz);
+mapLinear = productionMap.Power;
+delayAxis_s = productionMap.DelayAxis_s;
+dopplerAxis_Hz = productionMap.DopplerAxis_Hz;
 delayAxis_samples = delayAxis_s .* resolvedOptions.MapSampleRateHz;
 [globalPeakPower, globalPeakIndex] = max(mapLinear, [], "all");
 [globalPeakRow, globalPeakCol] = ind2sub(size(mapLinear), globalPeakIndex);
@@ -1437,6 +1542,10 @@ reviewMap_dB = max(mag2db(reviewMagnitude), ...
     resolvedOptions.FigureFloor_dB);
 
 mapProduct = struct();
+mapProduct.MapLinear = mapLinear;
+mapProduct.FullMapSize = double(size(mapLinear));
+mapProduct.MapFinite = true;
+mapProduct.AxisOrientation = "rows_doppler_columns_delay";
 mapProduct.MapRateMode = string(resolvedOptions.MapRateMode);
 mapProduct.MapDecimationFactor = double(resolvedOptions.MapDecimationFactor);
 mapProduct.MapSampleRateHz = double(resolvedOptions.MapSampleRateHz);
@@ -2375,6 +2484,62 @@ interpretation.SceneLimitedMapFraction = mean( ...
 
 end
 
+function interpretation = localApplyDataProfileInterpretation( ...
+    interpretation, targetEvidenceTable, resolvedOptions)
+
+interpretation.ExecutionStatus = "success";
+interpretation.ComputationalIntegrityLabel = ...
+    interpretation.ImplementationConfidenceLabel;
+interpretation.GlobalOccupancyDiagnosticLabel = ...
+    interpretation.SceneObservabilityLabel;
+interpretation.FieldSceneCharacterizationLabel = ...
+    interpretation.SceneObservabilityLabel;
+interpretation.SyntheticTargetEvidenceLabel = "NOT_APPLICABLE";
+interpretation.DetectionClaimed = false;
+
+if resolvedOptions.DataProfile ~= "synthetic"
+    return
+end
+
+interpretation.LegacyOverallLabel = interpretation.OverallLabel;
+interpretation.FieldSceneCharacterizationLabel = ...
+    "NOT_APPLICABLE_SYNTHETIC_PROFILE";
+
+if isempty(targetEvidenceTable)
+    interpretation.SyntheticTargetEvidenceLabel = ...
+        "no_truth_targets_in_map_window";
+else
+    interpretation.SyntheticTargetEvidenceLabel = ...
+        "target_evidence_characterized_no_cutoff";
+end
+
+interpretation.OverallLabel = ...
+    interpretation.ComputationalIntegrityLabel;
+interpretation.OverallRationale = "Synthetic G4 execution is governed by " + ...
+    "map integrity. Global field-scene occupancy is retained only as a " + ...
+    "diagnostic, while target evidence is evaluated post hoc without a " + ...
+    "detection claim.";
+
+end
+
+function mapIntegrity = localBuildMapIntegrity(mapSummaryTable, ...
+    representativeMaps)
+
+mapIntegrity = struct();
+mapIntegrity.Status = "ready";
+mapIntegrity.AllMapsFinite = all(mapSummaryTable.MapFinite);
+mapIntegrity.AxisOrientation = "rows_doppler_columns_delay";
+mapIntegrity.FullMapSizes = unique(mapSummaryTable(:, ...
+    ["FullMapRows", "FullMapColumns"]), "rows");
+mapIntegrity.ReviewMapsFinite = all(arrayfun(@(map) ...
+    all(isfinite(map.Map_dB), "all"), representativeMaps));
+
+if ~mapIntegrity.AllMapsFinite || ~mapIntegrity.ReviewMapsFinite
+    mapIntegrity.Status = "blocked";
+end
+
+end
+
 function label = localCollapseRateAuditAgreementLabels(labelVector)
 
 labelVector = string(labelVector(:));
@@ -2400,6 +2565,10 @@ optionsOutput.MapCpiSampleCounts = ...
     double(resolvedOptions.MapCpiSampleCounts(:));
 optionsOutput.WindowLabels = string(resolvedOptions.WindowLabels(:));
 optionsOutput.AppliedCorrectionSource = string(appliedCorrection.Source);
+
+if isfield(optionsOutput, "SyntheticTruth")
+    optionsOutput = rmfield(optionsOutput, "SyntheticTruth");
+end
 
 end
 

@@ -1,4 +1,4 @@
-function analysis = helperAnalyzeG5Mitigation(sessionData, ...
+function [analysis, fullMapProducts] = helperAnalyzeG5Mitigation(sessionData, ...
     collectionMetadataInfo, g3SyncResults, g4Analysis, options)
 %HELPERANALYZEG5MITIGATION Analyze the first G5 mitigation slice.
 %
@@ -7,6 +7,10 @@ function analysis = helperAnalyzeG5Mitigation(sessionData, ...
 %   none, conservative_lms, and aggressive_lms mitigation candidates on a
 %   bounded set of G4 map rows. LMS candidates use dsp.LMSFilter, and all
 %   candidate maps are recomputed with ambgfun.
+%
+%   [ANALYSIS, FULLMAPPRODUCTS] also returns the full candidate maps for
+%   immediate downstream diagnostics. The optional output is not retained
+%   in ANALYSIS, so the established one-output behavior remains compact.
 
 arguments
     sessionData (1,1) struct
@@ -34,9 +38,11 @@ preprocessedSignals = localBuildPreprocessedSignals(sessionData, ...
     selectedRows, roleInfo, appliedCorrection, resolvedOptions);
 
 [metricTable, protectedDetailTable, residualErrorPowerTable, ...
-    representativeMaps] = localEvaluateCandidates(selectedRows, ...
+    representativeMaps, targetEvidenceTable, targetRegionViews, ...
+    fullMapProducts] = ...
+    localEvaluateCandidates(selectedRows, ...
     preprocessedSignals, candidateProfiles, appliedCorrection, ...
-    productDefinition, resolvedOptions);
+    productDefinition, resolvedOptions, nargout > 1);
 suppressionSummaryTable = localBuildSuppressionSummary(metricTable, ...
     candidateProfiles);
 protectedRetentionTable = localBuildProtectedRetentionSummary( ...
@@ -66,7 +72,7 @@ analysis.DatasetId = string(sessionData.DatasetId);
 analysis.StageId = "G5_Mitigation";
 analysis.AnalysisStageId = "G5_Mitigation_First_Slice";
 analysis.AnalysisScope = string(resolvedOptions.AnalysisScope);
-analysis.Options = resolvedOptions;
+analysis.Options = localBuildOptionsOutput(resolvedOptions);
 analysis.RoleInfo = roleInfo;
 analysis.AppliedCorrection = appliedCorrection;
 analysis.BaselineProductDefinition = productDefinition;
@@ -95,6 +101,10 @@ analysis.DecisionComparisonTable = decisionComparisonTable;
 analysis.UpstreamCaveatsCarriedForward = upstreamCaveatTable;
 analysis.RequirementsCoverageTable = requirementsCoverageTable;
 analysis.RepresentativeMaps = representativeMaps;
+analysis.SyntheticTargetEvidenceTable = targetEvidenceTable;
+analysis.SyntheticTargetRegionViews = targetRegionViews;
+analysis.TargetRetentionPolicy = localResolveTargetRetentionPolicy( ...
+    resolvedOptions);
 
 end
 
@@ -239,6 +249,11 @@ resolvedOptions.ConservativeLmsLeakageFactor = 1.0;
 resolvedOptions.AggressiveLmsLength = 64.0;
 resolvedOptions.AggressiveLmsStepSize = 0.15;
 resolvedOptions.AggressiveLmsLeakageFactor = 0.999;
+resolvedOptions.DataProfile = "field_capture";
+resolvedOptions.RunPostHocSyntheticTargetEvidence = false;
+resolvedOptions.SyntheticTruth = struct();
+resolvedOptions.TargetLagUncertainty_samples = NaN;
+resolvedOptions.TargetResidualFrequencyUncertainty_Hz = NaN;
 
 optionFields = fieldnames(options);
 
@@ -260,6 +275,22 @@ resolvedOptions.MapDecimationFactor = round( ...
 resolvedOptions.MapSampleRateHz = double(resolvedOptions.MapSampleRateHz);
 resolvedOptions.ReviewMapRows = round(double(resolvedOptions.ReviewMapRows));
 resolvedOptions.ReviewMapCols = round(double(resolvedOptions.ReviewMapCols));
+resolvedOptions.DataProfile = lower(strtrim( ...
+    string(resolvedOptions.DataProfile)));
+resolvedOptions.RunPostHocSyntheticTargetEvidence = logical( ...
+    resolvedOptions.RunPostHocSyntheticTargetEvidence);
+
+if ~ismember(resolvedOptions.DataProfile, ...
+        ["field_capture", "synthetic"])
+    error("helperAnalyzeG5Mitigation:InvalidDataProfile", ...
+        "DataProfile must be ""field_capture"" or ""synthetic"".");
+end
+
+if resolvedOptions.RunPostHocSyntheticTargetEvidence && ...
+        resolvedOptions.DataProfile ~= "synthetic"
+    error("helperAnalyzeG5Mitigation:InvalidTargetEvidenceProfile", ...
+        "Post-hoc scenario truth is supported only for synthetic data.");
+end
 
 end
 
@@ -400,12 +431,21 @@ function candidateTable = localBuildCandidateTable(candidateProfiles, ...
     resolvedOptions)
 
 candidateTable = struct2table(candidateProfiles);
+
+if resolvedOptions.DataProfile == "synthetic"
+    protectedRegionPolicy = "descriptive_no_target_retention_cutoff";
+    minimumRetentionRatio = NaN;
+else
+    protectedRegionPolicy = ...
+        "baseline_off_origin_nonzero_doppler_above_peak_minus_20db";
+    minimumRetentionRatio = double( ...
+        resolvedOptions.ProtectedRegionMinRetentionRatio);
+end
+
 candidateTable.ProtectedRegionPolicy = repmat( ...
-    "baseline_off_origin_nonzero_doppler_above_peak_minus_20db", ...
-    height(candidateTable), 1);
+    protectedRegionPolicy, height(candidateTable), 1);
 candidateTable.MinProtectedRetentionRatio = repmat( ...
-    double(resolvedOptions.ProtectedRegionMinRetentionRatio), ...
-    height(candidateTable), 1);
+    minimumRetentionRatio, height(candidateTable), 1);
 
 end
 
@@ -545,9 +585,11 @@ end
 end
 
 function [metricTable, protectedDetailTable, residualErrorPowerTable, ...
-    representativeMaps] = localEvaluateCandidates(selectedRows, ...
+    representativeMaps, targetEvidenceTable, targetRegionViews, ...
+    fullMapProducts] = ...
+    localEvaluateCandidates(selectedRows, ...
     preprocessedSignals, candidateProfiles, appliedCorrection, ...
-    productDefinition, resolvedOptions)
+    productDefinition, resolvedOptions, returnFullMaps)
 
 rowCount = height(selectedRows);
 candidateCount = numel(candidateProfiles);
@@ -561,6 +603,14 @@ representativeMaps = repmat(localRepresentativeMapTemplate(), ...
 metricIndex = 0;
 protectedIndex = 0;
 residualIndex = 0;
+targetEvidenceTable = table();
+targetRegionViews = struct([]);
+fullMapProducts = repmat(localFullMapProductTemplate(), 0, 1);
+
+if returnFullMaps
+    fullMapProducts = repmat(localFullMapProductTemplate(), ...
+        rowCount * candidateCount, 1);
+end
 
 for rowIndex = 1:rowCount
     selectedRow = selectedRows(rowIndex, :);
@@ -591,6 +641,32 @@ for rowIndex = 1:rowCount
         mapProduct = localBuildMapProduct(referenceWindow, ...
             candidateSurveillance, cpiDefinition, productDefinition, ...
             resolvedOptions);
+        if returnFullMaps
+            outputIndex = (rowIndex - 1) * candidateCount + ...
+                candidateIndex;
+            fullMapProducts(outputIndex) = localBuildFullMapProduct( ...
+                string(selectedRow.CpiLabel(1)), ...
+                string(selectedRow.WindowLabel(1)), ...
+                double(selectedRow.Repetition(1)), profile, mapProduct);
+        end
+        if resolvedOptions.RunPostHocSyntheticTargetEvidence
+            evidenceContext = localBuildTargetEvidenceContext( ...
+                selectedRow, mapProduct, profile, appliedCorrection, ...
+                resolvedOptions);
+            targetEvidence = helperAnalyzeSyntheticTargetEvidence( ...
+                mapProduct.MapLinear, mapProduct.RawDelayAxis_s, ...
+                mapProduct.RawDopplerAxis_Hz, ...
+                resolvedOptions.SyntheticTruth, evidenceContext);
+            targetEvidenceTable = [targetEvidenceTable; ...
+                targetEvidence.TargetTable]; %#ok<AGROW>
+
+            if isempty(targetRegionViews)
+                targetRegionViews = targetEvidence.TargetRegionViews;
+            else
+                targetRegionViews = [targetRegionViews; ...
+                    targetEvidence.TargetRegionViews]; %#ok<AGROW>
+            end
+        end
         [interpretationLabel, rationale] = localClassifyMapProduct( ...
             mapProduct, resolvedOptions);
         candidateProducts{candidateIndex} = mapProduct;
@@ -625,6 +701,117 @@ end
 metricTable = struct2table(metricRows(1:metricIndex));
 protectedDetailTable = struct2table(protectedRows(1:protectedIndex));
 residualErrorPowerTable = struct2table(residualRows(1:residualIndex));
+
+if ~isempty(targetEvidenceTable)
+    targetEvidenceTable = localAddNoneCandidateChanges( ...
+        targetEvidenceTable);
+end
+
+end
+
+function output = localBuildFullMapProduct( ...
+    cpiLabel, windowLabel, repetition, profile, mapProduct)
+
+output = localFullMapProductTemplate();
+output.CandidateName = string(profile.CandidateName);
+output.CpiLabel = string(cpiLabel);
+output.WindowLabel = string(windowLabel);
+output.Repetition = double(repetition);
+output.MapSampleRateHz = double(mapProduct.MapSampleRateHz);
+output.AxisOrientation = string(mapProduct.AxisOrientation);
+output.MapLinear = mapProduct.MapLinear;
+output.DelayAxis_s = mapProduct.RawDelayAxis_s;
+output.DopplerAxis_Hz = mapProduct.RawDopplerAxis_Hz;
+
+end
+
+function output = localFullMapProductTemplate()
+
+output = struct( ...
+    "CandidateName", "", ...
+    "CpiLabel", "", ...
+    "WindowLabel", "", ...
+    "Repetition", NaN, ...
+    "MapSampleRateHz", NaN, ...
+    "AxisOrientation", "rows_doppler_columns_delay", ...
+    "MapLinear", single.empty(0, 0), ...
+    "DelayAxis_s", zeros(1, 0), ...
+    "DopplerAxis_Hz", zeros(0, 1));
+
+end
+
+function context = localBuildTargetEvidenceContext(selectedRow, mapProduct, ...
+    profile, appliedCorrection, resolvedOptions)
+
+repetition = double(selectedRow.Repetition(1));
+partStartOffsets_s = double( ...
+    resolvedOptions.SyntheticTruth.part_start_offsets_s(:));
+
+if repetition > numel(partStartOffsets_s)
+    error("helperAnalyzeG5Mitigation:MissingTruthPartOffset", ...
+        "Scenario truth has no start offset for repetition %d.", ...
+        repetition);
+end
+
+context = struct();
+context.CandidateName = string(profile.CandidateName);
+context.Repetition = repetition;
+context.CpiLabel = string(selectedRow.CpiLabel(1));
+context.WindowLabel = string(selectedRow.WindowLabel(1));
+context.NativeSampleRateHz = double(resolvedOptions.SampleRateHz);
+context.MapSampleRateHz = double(resolvedOptions.MapSampleRateHz);
+context.PartStartOffset_s = partStartOffsets_s(repetition);
+context.CpiStart_s = (double(selectedRow.WindowStartSample(1)) - 1.0) ./ ...
+    double(resolvedOptions.SampleRateHz);
+context.CpiDuration_s = double(selectedRow.CpiDuration_s(1));
+context.DirectPathDelay_s = double(mapProduct.DirectPathDelay_s);
+context.DirectPathDoppler_Hz = double(mapProduct.DirectPathDoppler_Hz);
+context.AppliedLag_samples = double(appliedCorrection.AppliedLag_samples);
+context.AppliedResidualFrequency_Hz = ...
+    double(appliedCorrection.AppliedResidualFrequency_Hz);
+context.LagUncertainty_samples = ...
+    double(resolvedOptions.TargetLagUncertainty_samples);
+context.ResidualFrequencyUncertainty_Hz = ...
+    double(resolvedOptions.TargetResidualFrequencyUncertainty_Hz);
+
+end
+
+function targetEvidenceTable = localAddNoneCandidateChanges( ...
+    targetEvidenceTable)
+
+for rowIndex = 1:height(targetEvidenceTable)
+    row = targetEvidenceTable(rowIndex, :);
+    baselineMask = ...
+        targetEvidenceTable.CandidateName == "none" & ...
+        targetEvidenceTable.Repetition == row.Repetition & ...
+        targetEvidenceTable.CpiLabel == row.CpiLabel & ...
+        targetEvidenceTable.WindowLabel == row.WindowLabel & ...
+        targetEvidenceTable.SourceCaseId == row.SourceCaseId & ...
+        targetEvidenceTable.TargetId == row.TargetId;
+    baselineRow = targetEvidenceTable(baselineMask, :);
+
+    if height(baselineRow) ~= 1
+        error("helperAnalyzeG5Mitigation:MissingTargetBaseline", ...
+            "Expected one no-mitigation baseline for target %s.", ...
+            row.TargetId);
+    end
+
+    delayChange_s = row.AssociatedDelay_s - ...
+        baselineRow.AssociatedDelay_s;
+    dopplerChange_Hz = row.AssociatedDoppler_Hz - ...
+        baselineRow.AssociatedDoppler_Hz;
+    targetEvidenceTable.TargetLevelChangeFromNone_dB(rowIndex) = ...
+        row.TargetLevel_dB - baselineRow.TargetLevel_dB;
+    targetEvidenceTable.LocalProminenceChangeFromNone_dB(rowIndex) = ...
+        row.LocalProminence_dB - baselineRow.LocalProminence_dB;
+    targetEvidenceTable.DelayCoordinateChangeFromNone_samples(rowIndex) = ...
+        delayChange_s ./ row.MapDelaySpacing_s;
+    targetEvidenceTable.DopplerCoordinateChangeFromNone_Hz(rowIndex) = ...
+        dopplerChange_Hz;
+    targetEvidenceTable.CoordinateChangeFromNone_bins(rowIndex) = hypot( ...
+        delayChange_s ./ row.MapDelaySpacing_s, ...
+        dopplerChange_Hz ./ row.MapDopplerSpacing_Hz);
+end
 
 end
 
@@ -663,6 +850,16 @@ row = struct( ...
     "WindowIndex", NaN, ...
     "CpiDuration_s", NaN, ...
     "CpiSamples", NaN, ...
+    "FullMapRows", NaN, ...
+    "FullMapColumns", NaN, ...
+    "MapFinite", false, ...
+    "AxisOrientation", "", ...
+    "DelayAxisStart_s", NaN, ...
+    "DelayAxisEnd_s", NaN, ...
+    "DelayAxisSpacing_s", NaN, ...
+    "DopplerAxisStart_Hz", NaN, ...
+    "DopplerAxisEnd_Hz", NaN, ...
+    "DopplerAxisSpacing_Hz", NaN, ...
     "MapRateMode", "", ...
     "MapDecimationFactor", NaN, ...
     "MapSampleRateHz", NaN, ...
@@ -705,6 +902,18 @@ row.WindowStartSample = double(selectedRow.WindowStartSample(1));
 row.WindowIndex = double(selectedRow.WindowIndex(1));
 row.CpiDuration_s = double(selectedRow.CpiDuration_s(1));
 row.CpiSamples = double(selectedRow.CpiSamples(1));
+row.FullMapRows = double(mapProduct.FullMapSize(1));
+row.FullMapColumns = double(mapProduct.FullMapSize(2));
+row.MapFinite = logical(mapProduct.MapFinite);
+row.AxisOrientation = string(mapProduct.AxisOrientation);
+row.DelayAxisStart_s = double(mapProduct.RawDelayAxis_s(1));
+row.DelayAxisEnd_s = double(mapProduct.RawDelayAxis_s(end));
+row.DelayAxisSpacing_s = median(diff( ...
+    mapProduct.RawDelayAxis_s));
+row.DopplerAxisStart_Hz = double(mapProduct.RawDopplerAxis_Hz(1));
+row.DopplerAxisEnd_Hz = double(mapProduct.RawDopplerAxis_Hz(end));
+row.DopplerAxisSpacing_Hz = median(diff( ...
+    mapProduct.RawDopplerAxis_Hz));
 row.MapRateMode = string(mapProduct.MapRateMode);
 row.MapDecimationFactor = double(mapProduct.MapDecimationFactor);
 row.MapSampleRateHz = double(mapProduct.MapSampleRateHz);
@@ -770,7 +979,11 @@ baselinePower = max(protectedRegion.BaselineProtectedPower, ...
 retentionRatio = max(double(candidatePower) ./ double(baselinePower), eps);
 retention_dB = pow2db(retentionRatio);
 
-if string(profile.CandidateName) == "none"
+if resolvedOptions.DataProfile == "synthetic"
+    retentionLabel = "diagnostic_only_no_cutoff";
+    rationale = "Synthetic protected-region retention is descriptive; " + ...
+        "no target-retention cutoff is imposed.";
+elseif string(profile.CandidateName) == "none"
     retentionLabel = "baseline_reference";
     rationale = "No mitigation defines the protected-region reference.";
 elseif retentionRatio >= resolvedOptions.ProtectedRegionMinRetentionRatio
@@ -904,6 +1117,20 @@ function mapProduct = localBuildMapProduct(referenceWindow, ...
 mapLinear = max(single(mapMagnitude) .^ 2, eps("single"));
 delayAxis_s = double(delayAxis_s(:).');
 dopplerAxis_Hz = double(dopplerAxis_Hz(:));
+
+if size(mapLinear, 1) ~= numel(dopplerAxis_Hz) || ...
+        size(mapLinear, 2) ~= numel(delayAxis_s)
+    error("helperAnalyzeG5Mitigation:MapAxisMismatch", ...
+        "Map rows must match Doppler and columns must match delay.");
+end
+
+if any(~isfinite(mapLinear), "all") || ...
+        any(~isfinite(delayAxis_s)) || any(~isfinite(dopplerAxis_Hz)) || ...
+        any(diff(delayAxis_s) <= 0) || any(diff(dopplerAxis_Hz) <= 0)
+    error("helperAnalyzeG5Mitigation:InvalidMapIntegrity", ...
+        "The ambiguity map and axes must be finite and increasing.");
+end
+
 delayAxis_samples = delayAxis_s .* resolvedOptions.MapSampleRateHz;
 [globalPeakPower, globalPeakIndex] = max(mapLinear, [], "all");
 [globalPeakRow, globalPeakCol] = ind2sub(size(mapLinear), ...
@@ -983,7 +1210,11 @@ mapProduct.MapRateMode = string(resolvedOptions.MapRateMode);
 mapProduct.MapDecimationFactor = ...
     double(resolvedOptions.MapDecimationFactor);
 mapProduct.MapSampleRateHz = double(resolvedOptions.MapSampleRateHz);
+mapProduct.FullMapSize = double(size(mapLinear));
+mapProduct.MapFinite = true;
+mapProduct.AxisOrientation = "rows_doppler_columns_delay";
 mapProduct.MapLinear = mapLinear;
+mapProduct.RawDelayAxis_s = delayAxis_s;
 mapProduct.RawDelayAxis_samples = delayAxis_samples;
 mapProduct.RawDopplerAxis_Hz = dopplerAxis_Hz;
 mapProduct.GlobalPeakDelay_samples = double(globalPeakDelay_samples);
@@ -992,6 +1223,8 @@ mapProduct.GlobalPeak_dB = pow2db(double(globalPeakPower));
 mapProduct.OriginNeighborhoodContainsGlobalPeak = ...
     logical(originMask(globalPeakIndex));
 mapProduct.DirectPathDelay_samples = double(directPathDelay_samples);
+mapProduct.DirectPathDelay_s = double(directPathDelay_samples) ./ ...
+    double(resolvedOptions.MapSampleRateHz);
 mapProduct.DirectPathDoppler_Hz = double(directPathDoppler_Hz);
 mapProduct.DirectPathPower = single(directPathPower);
 mapProduct.DirectPathPeak_dB = pow2db(double(directPathPower));
@@ -1335,8 +1568,14 @@ for idx = 1:numel(candidateProfiles)
     retentionRatio = candidateRows.ProtectedRetentionRatio;
     belowBudgetCount = sum(retentionRatio < ...
         resolvedOptions.ProtectedRegionMinRetentionRatio);
+    minimumRequiredRetentionRatio = ...
+        double(resolvedOptions.ProtectedRegionMinRetentionRatio);
 
-    if candidateName == "none"
+    if resolvedOptions.DataProfile == "synthetic"
+        belowBudgetCount = 0;
+        minimumRequiredRetentionRatio = NaN;
+        retentionLabel = "diagnostic_only_no_cutoff";
+    elseif candidateName == "none"
         retentionLabel = "baseline_reference";
     elseif belowBudgetCount == 0
         retentionLabel = "retained";
@@ -1356,8 +1595,7 @@ for idx = 1:numel(candidateProfiles)
         candidateRows.ProtectedRetention_dB, "omitnan"), ...
         "RowsBelowRetentionBudget", double(belowBudgetCount), ...
         "RetentionLabel", retentionLabel, ...
-        "MinRequiredRetentionRatio", ...
-        double(resolvedOptions.ProtectedRegionMinRetentionRatio) ...
+        "MinRequiredRetentionRatio", minimumRequiredRetentionRatio ...
         );
 end
 
@@ -1772,6 +2010,17 @@ decision = struct();
 decision.FormalGateDecisionEmitted = ...
     resolvedOptions.AnalysisScope == "formal_full_g5_comparison";
 
+if resolvedOptions.DataProfile == "synthetic"
+    decision.GateDecision = "NOT_APPLICABLE_SYNTHETIC_PROFILE";
+    decision.ReviewStatus = "synthetic_comparison_complete";
+    decision.DecisionLabel = "descriptive_no_target_retention_cutoff";
+    decision.NextBranch = "review_post_hoc_target_evidence";
+    decision.Rationale = "Synthetic LMS candidates are reported " + ...
+        "descriptively without a target-retention cutoff or field gate.";
+    decision.FormalGateDecisionEmitted = false;
+    return
+end
+
 if g4OverallLabel == "blocked"
     decision.GateDecision = "reject";
     decision.ReviewStatus = "manual_review_required";
@@ -1838,6 +2087,26 @@ note = repmat("selected_g4_rows=" + string(height(selectedRows)) + ...
 coverageTable = table(requirementId, coverageStatus, evidenceReference, ...
     note, VariableNames = {'RequirementId', 'CoverageStatus', ...
     'EvidenceReference', 'Note'});
+
+end
+
+function optionsOutput = localBuildOptionsOutput(resolvedOptions)
+
+optionsOutput = resolvedOptions;
+
+if isfield(optionsOutput, "SyntheticTruth")
+    optionsOutput = rmfield(optionsOutput, "SyntheticTruth");
+end
+
+end
+
+function policy = localResolveTargetRetentionPolicy(resolvedOptions)
+
+if resolvedOptions.DataProfile == "synthetic"
+    policy = "descriptive_no_cutoff";
+else
+    policy = "field_protected_region_threshold";
+end
 
 end
 
